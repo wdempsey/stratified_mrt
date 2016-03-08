@@ -1,2 +1,2 @@
-# stratified_mrt
-Code for sample size calculation in a stratified MRT
+# Sample size calculation for Stratified Micro-Randomized Trial
+
