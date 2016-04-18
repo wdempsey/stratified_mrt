@@ -10,7 +10,7 @@ rho.t.person = people[,7]
 
 B.t.person = t(Vectorize(cov.gen)(people[,2]*people[,3]))
 
-rho = 0.4
+rho = 0.9
 
 Z.t.person = B.t.person*matrix(rep(people[,4]-rho,3), byrow=TRUE, ncol = 3)
 
@@ -19,19 +19,13 @@ cov.t.person = cbind(B.t.person,Z.t.person)
 log.weights = A.t.person*(log(rho) - log(rho.t.person)) + (1-A.t.person)*(log(1-rho) - log(1-rho.t.person))
 
 fit.people = lm(Y.t.person~cov.t.person:as.factor(X.t.person)-1,weights = exp(log.weights))
-fit.people2 = lm(Y.t.person~B.t.person*as.factor(X.t.person)-1,weights = exp(log.weights))
-
-RSS.full = sum(fit.people$weights*fit.people$residuals^2)
-RSS.part = sum(fit.people$weights*fit.people2$residuals^2)
-
-test.statistic = ((RSS.part-RSS.full)/6)/(RSS.full/(length(fit.people$residuals)-12))
-pf(test.statistic, 5,(length(fit.people$residuals)-12))>1-0.05
+fit.people2 = lm(Y.t.person~B.t.person:as.factor(X.t.person)-1,weights = exp(log.weights))
 
 Covariates = model.matrix(fit.people)
 
 XWX = foreach(i=1:num.persons, .combine = "+") %do% extract.tXWX(Covariates,people,log.weights,i)
 
-Middle = foreach(person=1:num.persons, .combine = "+") %do% M.function(person)
+Middle = foreach(person=1:num.persons, .combine = "+") %do% M.function(Covariates, people, log.weights, person,XWX,fit.people)
 
 Sigma = solve(XWX,Middle)%*%solve(XWX)
 
