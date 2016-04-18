@@ -1,7 +1,7 @@
 ### Functions associated with Sample Size Calculations
 require(foreach)
 
-### Sample sequence of states
+### Simulation functions
 rand.probs <- function(X.t, H.t, T, N, pi, tau, lambda, min.p, max.p) {
   ## Calculate randomization probabilities given pi, x.t, lambda, 
   ## T, and N 
@@ -11,6 +11,7 @@ rand.probs <- function(X.t, H.t, T, N, pi, tau, lambda, min.p, max.p) {
 }
 
 calc.Ptreat <- function(pi, P, effect) {
+  ## Calculate the Markov chain under treatment given pi, P, and effect
   pi2 = c(max(min(pi[1]-effect,1),0), max(min(pi[2]-effect,1),0))
   
   eig.P2 = eigen(rbind(pi2,pi2))
@@ -61,10 +62,12 @@ daily.sim <- function(N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p) 
 }
 
 calculate.outcomes <- function(H.t,T,window.length) {
+  # Calculate the outcome variable given the history of process
   foreach(i=1:T, .combine = c) %do% mean(H.t$X[i:(i+window.length)]==1)
 }
 
 daily.data <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p){
+  # Generate the daily data for a participant given all the inputs!
   inside.fn <- function(day) {
     P.treat = calc.Ptreat(pi,P,daily.treat[day])
     H.t = daily.sim(N, pi, tau, P.0, P.treat, T+window.length, window.length, min.p, max.p)
@@ -76,28 +79,25 @@ daily.data <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, ma
 }
 
 full.trial.sim <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p) {
+  # Generate the full trial simulation using a vector of the daily treatment effects
   foreach(i=1:length(daily.treat), .combine = "rbind") %do% daily.data(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p)(i)
 }
 
-
 MRT.sim <- function(num.people, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p) {
+  # Do the trial across people!!
   foreach(i=1:num.people, .combine = "rbind") %do% cbind(i,full.trial.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p))
 }
 
-extract.tXWX <- function(cov, data, log.weights, person) {
-  X = cov[data[,1]==person,]
-  W = exp(log.weights[data[,1]==person])
-  t(X)%*%diag(W)%*%X
-}
-
-
-# For each t generate Z.t
 cov.gen <-  function(t) {
+  # For each t generate Z.t
   cov.t = c(1, floor((t-1)/T), floor((t-1)/T)^2)
   return(cov.t)
 }
 
+### Sample size calculations
+
 find.d <- function(bar.d, init.d, max.d, Z.t, num.days) {
+  # Find the quadratic terms given inputs
   D.star = num.days -1
   d = vector(length = 3)
   
@@ -111,14 +111,26 @@ find.d <- function(bar.d, init.d, max.d, Z.t, num.days) {
   return(d)
 }
 
-### Conditional sample size calculation
-# We are averaging over E[ (rho_t*(1-rho_t))^{-1} | X_t = x] for now
+rho.function <- function(x, N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p) {
+  ## Return the randomization probability for one simulated day
+  H.t = daily.sim(N, pi, tau, P.0, P.treat, T+window.length, window.length, min.p, max.p)
+  return(H.t$rho*(H.t$I == 1)*(H.t$X == x))
+}
+
+var.function <- function(x, N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p) {
+  ## Return the variance of the randomization probability for one simulated day
+  H.t = daily.sim(N, pi, tau, P.0, P.treat, T+window.length, window.length, min.p, max.p)
+  Y.t = calculate.outcomes(H.t,T,window.length)
+  temp = Y.t*(H.t$I[1:T] == 1)*(H.t$X[1:T] == x)
+  return(var(temp[temp!=0]))
+}
 
 sample.size <- function(ss.param,p,q,alpha.0 = 0.05,beta.0 = 0.2, max.iters = 10000) {
+  ## Sample size calculation given the ss.param, p, and q
   
   p.calc <- function(N) {
     c.N = N*ss.param
-        
+    
     # inv.q  = (N-q-p)*(1-alpha.0)/ (p*(N-q-1))
     df1 = p
     df2 = N-q-p
@@ -147,6 +159,15 @@ sample.size <- function(ss.param,p,q,alpha.0 = 0.05,beta.0 = 0.2, max.iters = 10
   return(N)
 }
 
+### Estimation
+
+extract.tXWX <- function(cov, data, log.weights, person) {
+  X = cov[data[,1]==person,]
+  W = exp(log.weights[data[,1]==person])
+  t(X)%*%diag(W)%*%X
+}
+
+
 M.function <- function(person) {
   X = Covariates[people[,1]==person,]
   W = exp(log.weights[people[,1]==person])
@@ -157,14 +178,3 @@ M.function <- function(person) {
   return(M.i)
 }
 
-rho.function <- function(x, N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p) {
-  H.t = daily.sim(N, pi, tau, P.0, P.treat, T+window.length, window.length, min.p, max.p)
-  return(H.t$rho*(H.t$I == 1)*(H.t$X == x))
-}
-
-var.function <- function(x, N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p) {
-  H.t = daily.sim(N, pi, tau, P.0, P.treat, T+window.length, window.length, min.p, max.p)
-  Y.t = calculate.outcomes(H.t,T,window.length)
-  temp = Y.t*(H.t$I[1:T] == 1)*(H.t$X[1:T] == x)
-  return(var(temp[temp!=0]))
-}
