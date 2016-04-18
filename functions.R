@@ -156,3 +156,15 @@ M.function <- function(person) {
   M.i = t(X)%*%diag(W)%*%outer(Q.test,Q.test)%*%diag(W)%*%X
   return(M.i)
 }
+
+rho.function <- function(x, N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p) {
+  H.t = daily.sim(N, pi, tau, P.0, P.treat, T+window.length, window.length, min.p, max.p)
+  return(H.t$rho*(H.t$I == 1)*(H.t$X == x))
+}
+
+var.function <- function(x, N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p) {
+  H.t = daily.sim(N, pi, tau, P.0, P.treat, T+window.length, window.length, min.p, max.p)
+  Y.t = calculate.outcomes(H.t,T,window.length)
+  temp = Y.t*(H.t$I[1:T] == 1)*(H.t$X[1:T] == x)
+  return(var(temp[temp!=0]))
+}

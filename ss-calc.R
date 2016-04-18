@@ -1,17 +1,4 @@
-library(foreach)
-daily.treat = daily.treat*0
-
-rho.function <- function(x, N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p) {
-  H.t = daily.sim(N, pi, tau, P.0, P.treat, T+window.length, window.length, min.p, max.p)
-  return(H.t$rho*(H.t$I == 1)*(H.t$X == x))
-}
-
-var.function <- function(x, N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p) {
-  H.t = daily.sim(N, pi, tau, P.0, P.treat, T+window.length, window.length, min.p, max.p)
-  Y.t = calculate.outcomes(H.t,T,window.length)
-  temp = Y.t*(H.t$I[1:T] == 1)*(H.t$X[1:T] == x)
-  return(var(temp[temp!=0]))
-}
+source("./functions.R"); source("./setup.R")
 
 num.iters = 2000
 x = 1
@@ -79,11 +66,11 @@ sample.size(b2%*%solve(Sigma.2, b1),p = 3,q = 3)
 # pi.new = c(pi[1]*(1-gamma),1-pi[1]*(1-gamma))
 # std.effect1 = pi[1]*gamma/sqrt(phi1*prod(pi.new)/60)
 # std.effect2 = pi[1]*gamma/sqrt(phi2*prod(pi.new)/60)
-# 
+#
 # t = seq(1,days*T)
-# 
+#
 # Z.t = Vectorize(cov.gen)(t)
-# 
+#
 # d1 = find.d(bar.d=std.effect1,init.d=0,max.d=7,Z.t)
 # d2 = find.d(bar.d=std.effect2,init.d=0,max.d=7,Z.t)
-# 
+#
