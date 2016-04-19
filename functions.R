@@ -106,7 +106,7 @@ find.d <- function(bar.d, init.d, max.d, Z.t, num.days) {
   d[2] = -2 * d[3] * max.d
   
   ### Fix the scaling to get right average
-  d = (length(t) * bar.d / sum(d%*%Z.t)) * d
+  d = (ncol(Z.t) * bar.d / sum(d%*%Z.t)) * d
   
   return(d)
 }
@@ -168,11 +168,11 @@ extract.tXWX <- function(cov, data, log.weights, person) {
 }
 
 
-M.function <- function(person) {
-  X = Covariates[people[,1]==person,]
-  W = exp(log.weights[people[,1]==person])
+M.function <- function(cov, data, log.weights, person, XWX, fit) {
+  X = cov[data[,1]==person,]
+  W = exp(log.weights[data[,1]==person])
   H = X%*%solve(XWX, t(X)%*%diag(W))
-  e = fit.people$residuals[people[,1]==person]
+  e = fit$residuals[data[,1]==person]
   Q.test = solve(diag(nrow(H)) - H,e)
   M.i = t(X)%*%diag(W)%*%outer(Q.test,Q.test)%*%diag(W)%*%X
   return(M.i)

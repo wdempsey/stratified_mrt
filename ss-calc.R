@@ -16,14 +16,16 @@ par(mfrow = c(2,1), mar = c(2,4,1,1)+0.1)
 plot(1:720/60,mean.rho.t1, xlab = "", ylab = "Rho | S")
 plot(1:720/60,mean.rho.t2, xlab = "Time (in hours)", ylab = "Rho | NS")
 
-# smooth.rho1 = lowess(invvar.rho.t1,f=1/5)$y
-# smooth.rho2 = lowess(invvar.rho.t2,f=1/5)$y
-
 par(mfrow = c(2,1), mar = c(2,4,1,1)+0.1)
 plot(1:720/60,invvar.rho.t1, xlab = "", ylab = "f | S")
 plot(1:720/60,invvar.rho.t2, xlab = "Time (in hours)", ylab = "f | NS")
 
+## Fix NaNs by taking average of the values (for now)
+invvar.rho.t1[is.nan(invvar.rho.t1)] = mean(invvar.rho.t1,na.rm=TRUE)
+invvar.rho.t2[is.nan(invvar.rho.t2)] = mean(invvar.rho.t2,na.rm=TRUE)
+
 Z.t = Vectorize(cov.gen)(1:(days*T))
+d = find.d(bar.d, init.d, max.d, Z.t, num.days)
 
 term1 = (rep(invvar.rho.t1,days))#*tau[1]*pi[1])
 middle.term1 = foreach(i=1:ncol(Z.t), .combine = "+") %do% (term1[i]*outer(Z.t[,i],Z.t[,i]))
@@ -50,27 +52,8 @@ sigmasq.2 = 0.003752347 #mean(sigma.output2,na.rm = TRUE)
 b1 = d # Unstandardized effect sizes
 b2 = d # Unstandardized effect sizes
 
-samp.size.const = b1%*%solve(sigma.1* Sigma.1, b1) + b2%*%solve(sigma.2 * Sigma.2, b2)
+samp.size.const = b1%*%solve(sigmasq.1* Sigma.1, b1) + b2%*%solve(sigmasq.2 * Sigma.2, b2)
 
-sample.size(samp.size.const,p = 6,q = 6)
-c(std.beta*0.004,tau)
-## I only want to test for "Stress"
-sample.size(b1%*%solve(sigma.1*Sigma.1, b1),p = 3,q = 3)
-sample.size(b2%*%solve(Sigma.2, b1),p = 3,q = 3)
+ss.answer = sample.size(samp.size.const,p = 6,q = 6)
 
-
-# ### Calculating the standardized effects
-# phi1 = sigma.1/(prod(pi)/60) # approximately for now the variance scaling
-# phi2 = sigma.2/(prod(pi)/60) # approximately for now the variance scaling
-# gamma = 0.10 # percent decrease that we want to see
-# pi.new = c(pi[1]*(1-gamma),1-pi[1]*(1-gamma))
-# std.effect1 = pi[1]*gamma/sqrt(phi1*prod(pi.new)/60)
-# std.effect2 = pi[1]*gamma/sqrt(phi2*prod(pi.new)/60)
-#
-# t = seq(1,days*T)
-#
-# Z.t = Vectorize(cov.gen)(t)
-#
-# d1 = find.d(bar.d=std.effect1,init.d=0,max.d=7,Z.t)
-# d2 = find.d(bar.d=std.effect2,init.d=0,max.d=7,Z.t)
-#
+ss.answer

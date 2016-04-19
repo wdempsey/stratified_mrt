@@ -1,6 +1,6 @@
 # Study assumptions
 
-num.persons = 15 # Number of persons in the study
+num.persons = 16 # Number of persons in the study
 
 T = 720 # Number of timepoints per day
 
@@ -14,7 +14,7 @@ eig.P = eigen(P)
 
 pi = (eig.P$vectors%*%diag(c(1,0))%*%solve(eig.P$vectors))[1,]  # Stationary distribution for P
 
-tau = c(0.6,0.6) # Expected availability in each group ("Stressed", "Not Stressed")
+tau = c(0.1,0.1) # Expected availability in each group ("Stressed", "Not Stressed")
 
 # Randomization probability inputs
 N =  c(2,2) # Avg. number of actions per day in each group ("Stressed", "Not Stressed")
