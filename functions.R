@@ -79,13 +79,13 @@ daily.data <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, ma
 
 full.trial.sim <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p) {
   # Generate the full trial simulation using a vector of the daily treatment effects
-  foreach(i=1:length(daily.treat), .combine = "rbind") %do% daily.data(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p)(i)
+  foreach(i=1:length(daily.treat), .combine = "rbind") %dopar% daily.data(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p)(i)
 }
 
 MRT.sim <- function(num.people, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p) {
   # Do the trial across people!!
-  foreach(i=1:num.people, .combine = "rbind") %do% cbind(i,full.trial.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p))
-#   foreach(i=1:num.people, .combine = "rbind") %do% full.trial.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p) # no cbind saves 0.32 seconds
+  foreach(i=1:num.people, .combine = "rbind") %dopar% cbind(i,full.trial.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p))
+#   foreach(i=1:num.people, .combine = "rbind") %dopar% full.trial.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p) # no cbind saves 0.32 seconds
 }
 
 cov.gen <-  function(t) {
@@ -200,9 +200,9 @@ estimation <- function(people) {
   
   Covariates = model.matrix(fit.people)
   
-  XWX = foreach(i=1:num.persons, .combine = "+") %do% extract.tXWX(Covariates,people,log.weights,i)
+  XWX = foreach(i=1:num.persons, .combine = "+") %dopar% extract.tXWX(Covariates,people,log.weights,i)
   
-  Middle = foreach(person=1:num.persons, .combine = "+") %do% M.function(Covariates, people, log.weights, person,XWX,fit.people)
+  Middle = foreach(person=1:num.persons, .combine = "+") %dopar% M.function(Covariates, people, log.weights, person,XWX,fit.people)
   
   Sigma = solve(XWX,Middle)%*%solve(XWX)
   
