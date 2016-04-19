@@ -2,9 +2,9 @@ source("./functions.R"); source("./setup.R")
 
 num.iters = 2000
 x = 1
-sim.output1 = foreach(i=1:num.iters, .combine = "cbind") %dopar% rho.function(x,N, pi, tau, P.0, P.treat, T, windoparw.length, min.p, max.p)
+sim.output1 = foreach(i=1:num.iters, .combine = "cbind") %dopar% rho.function(x,N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p)
 x = 2
-sim.output2 = foreach(i=1:num.iters, .combine = "cbind") %dopar% rho.function(x,N, pi, tau, P.0, P.treat, T, windoparw.length, min.p, max.p)
+sim.output2 = foreach(i=1:num.iters, .combine = "cbind") %dopar% rho.function(x,N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p)
 
 mean.rho.t1 = foreach(i=1:720, .combine = "c") %dopar% mean(sim.output1[i,sim.output1[i,]!=0])
 mean.rho.t2 = foreach(i=1:720, .combine = "c") %dopar% mean(sim.output2[i,sim.output2[i,]!=0])
