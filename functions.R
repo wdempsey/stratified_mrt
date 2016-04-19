@@ -1,5 +1,5 @@
 ### Functions associated with Sample Size Calculations
-require(foreach)
+require(foreach); require(TTR)
 
 ### Simulation functions
 rand.probs <- function(X.t, H.t, T, N, pi, tau, lambda, min.p, max.p) {
@@ -61,17 +61,12 @@ daily.sim <- function(N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p) 
   return(H.t)
 }
 
-calculate.outcomes <- function(H.t,T,window.length) {
-  # Calculate the outcome variable given the history of process
-  foreach(i=1:T, .combine = c) %do% mean(H.t$X[i:(i+window.length)]==1)
-}
-
 daily.data <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p){
   # Generate the daily data for a participant given all the inputs!
   inside.fn <- function(day) {
     P.treat = calc.Ptreat(pi,P,daily.treat[day])
     H.t = daily.sim(N, pi, tau, P.0, P.treat, T+window.length, window.length, min.p, max.p)
-    Y.t = calculate.outcomes(H.t,T, window.length)
+    Y.t = SMA(H.t$X==1,window.length); Y.t = Y.t[(window.length+1):length(Y.t)]
     data = cbind(day,1:T,Y.t,H.t$A[1:T],H.t$X[1:T], H.t$rho[1:T],H.t$I[1:T])
     return(data[data[,7] == 1,]  )
   }
@@ -85,7 +80,8 @@ full.trial.sim <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p
 
 MRT.sim <- function(num.people, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p) {
   # Do the trial across people!!
-  foreach(i=1:num.people, .combine = "rbind") %do% cbind(i,full.trial.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p))
+#   foreach(i=1:num.people, .combine = "rbind") %do% cbind(i,full.trial.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p))
+  foreach(i=1:num.people, .combine = "rbind") %do% full.trial.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p) # no cbind saves 0.32 seconds
 }
 
 cov.gen <-  function(t) {
@@ -120,7 +116,7 @@ rho.function <- function(x, N, pi, tau, P.0, P.treat, T, window.length, min.p, m
 var.function <- function(x, N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p) {
   ## Return the variance of the randomization probability for one simulated day
   H.t = daily.sim(N, pi, tau, P.0, P.treat, T+window.length, window.length, min.p, max.p)
-  Y.t = calculate.outcomes(H.t,T,window.length)
+  Y.t = SMA(H.t$X==1,window.length); Y.t = Y.t[(window.length+1):length(Y.t)]
   temp = Y.t*(H.t$I[1:T] == 1)*(H.t$X[1:T] == x)
   return(var(temp[temp!=0]))
 }
@@ -178,3 +174,47 @@ M.function <- function(cov, data, log.weights, person, XWX, fit) {
   return(M.i)
 }
 
+
+estimation <- function(people) {
+  colnames(people) = c("person", "day","t","Y.t","A.t","X.t","rho.t","I.t")
+  
+  Y.t.person = people[,4]
+  A.t.person = people[,5]
+  X.t.person = people[,6]
+  rho.t.person = people[,7]
+  
+  B.t.person = t(Vectorize(cov.gen)(people[,2]*people[,3]))
+  
+  rho = mean(mean.rho.t1)*pi[1]+mean(mean.rho.t2)*pi[2] # Need to think about choice of rho
+  
+  Z.t.person = B.t.person*matrix(rep(people[,4]-rho,3), byrow=TRUE, ncol = 3)
+  
+  cov.t.person = cbind(B.t.person,Z.t.person)
+  
+  log.weights = A.t.person*(log(rho) - log(rho.t.person)) + (1-A.t.person)*(log(1-rho) - log(1-rho.t.person))
+  
+  fit.people = lm(Y.t.person~cov.t.person:as.factor(X.t.person)-1,weights = exp(log.weights))
+  
+  Covariates = model.matrix(fit.people)
+  
+  XWX = foreach(i=1:num.persons, .combine = "+") %do% extract.tXWX(Covariates,people,log.weights,i)
+  
+  Middle = foreach(person=1:num.persons, .combine = "+") %do% M.function(Covariates, people, log.weights, person,XWX,fit.people)
+  
+  Sigma = solve(XWX,Middle)%*%solve(XWX)
+  
+  entries = c(4:6,10:12)
+  output = (fit.people$coefficients[entries]%*%solve(Sigma[entries,entries], fit.people$coefficients[entries]))/num.persons
+  return(output)
+}
+
+estimation.simulation <- function(num.persons, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p) {
+  
+  people = MRT.sim(num.persons, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p)
+  
+  output = system.time(estimation(people))
+  
+  alpha.0 = 0.05
+  inv.f = (num.persons - 6*2)*(1-alpha.0)/(6*(num.persons-6-1))
+  return ( output > qf(inv.f, df1 = 6, df2 = num.persons - 6*2))
+}
