@@ -13,7 +13,7 @@ registerDoParallel(cl)
 source('./functions.R'); source('./setup.R')
 
 ### Estimation procedure given the dataset
-num.iters = 1000
+num.iters = 200
 
 initial.study = foreach(i=1:num.iters, .combine = c) %dopar% estimation.simulation(num.persons, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p)
 
