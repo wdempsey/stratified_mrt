@@ -61,6 +61,10 @@ daily.sim <- function(N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p) 
   return(H.t)
 }
 
+daily.sim_c <- compiler::cmpfun(daily.sim)
+
+
+
 daily.data <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p){
   # Generate the daily data for a participant given all the inputs!
   inside.fn <- function(day) {
@@ -80,8 +84,8 @@ full.trial.sim <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p
 
 MRT.sim <- function(num.people, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p) {
   # Do the trial across people!!
-#   foreach(i=1:num.people, .combine = "rbind") %do% cbind(i,full.trial.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p))
-  foreach(i=1:num.people, .combine = "rbind") %do% full.trial.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p) # no cbind saves 0.32 seconds
+  foreach(i=1:num.people, .combine = "rbind") %do% cbind(i,full.trial.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p))
+#   foreach(i=1:num.people, .combine = "rbind") %do% full.trial.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p) # no cbind saves 0.32 seconds
 }
 
 cov.gen <-  function(t) {
@@ -174,7 +178,6 @@ M.function <- function(cov, data, log.weights, person, XWX, fit) {
   return(M.i)
 }
 
-
 estimation <- function(people) {
   colnames(people) = c("person", "day","t","Y.t","A.t","X.t","rho.t","I.t")
   
@@ -212,7 +215,7 @@ estimation.simulation <- function(num.persons, N, pi, tau, P.0, daily.treat, T, 
   
   people = MRT.sim(num.persons, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p)
   
-  output = system.time(estimation(people))
+  output = estimation(people)
   
   alpha.0 = 0.05
   inv.f = (num.persons - 6*2)*(1-alpha.0)/(6*(num.persons-6-1))
