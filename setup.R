@@ -14,7 +14,7 @@ eig.P = eigen(P)
 
 pi = (eig.P$vectors%*%diag(c(1,0))%*%solve(eig.P$vectors))[1,]  # Stationary distribution for P
 
-tau = c(0.1,0.1) # Expected availability in each group ("Stressed", "Not Stressed")
+tau = c(0.05,0.05) # Expected availability in each group ("Stressed", "Not Stressed")
 
 # Randomization probability inputs
 N =  c(2,2) # Avg. number of actions per day in each group ("Stressed", "Not Stressed")
