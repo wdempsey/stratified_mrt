@@ -29,3 +29,8 @@ percent.Delta = 0.1 # % decrease in proximal outcome we wish to detect
 init.d = 0 # Initial treatment effect
 max.d = num.days/2 # Day of maximum treatment effect
 bar.d = pi[1]*(percent.Delta) # Avg treatment effect corresponding to % decrease in proximal outcome we wish to detect
+
+### Treatment vector
+Z.t = Vectorize(cov.gen)((1:num.days) * T)
+d = find.d(bar.d,init.d,max.d, Z.t,num.days)
+daily.treat = t(Z.t)%*%d
