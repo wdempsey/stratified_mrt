@@ -36,13 +36,17 @@ daily.sim <- function(N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p) 
   A.t[1] = rbinom(n=1,size=1, prob = rho.t)
   H.t = list("X"=X.t[1],"A" = A.t[1], "I" = I.t[1], "rho" =rho.t[1])
   t = 2
-  while (t <= T) {
+  while (t <= T+window.length) {
     if(A.t[t-1] ==0) {
       X.t[t] = sample(1:nrow(P.0), size = 1, prob = P.0[X.t[t-1],])  
-      I.t[t] = rbinom(n=1,size = 1, prob=tau[X.t])
-      if( I.t[t] == 1) {
-        rho.t[t] = rand.probs(X.t[t], H.t, T, N, pi, tau, lambda, min.p, max.p)
-      } else ( rho.t[t] = 0 )
+      if(t > T) {
+        I.t[t] = 0; rho.t[t] = 0
+      } else{
+        I.t[t] = rbinom(n=1,size = 1, prob=tau[X.t])
+        if( I.t[t] == 1) {
+          rho.t[t] = rand.probs(X.t[t], H.t, T, N, pi, tau, lambda, min.p, max.p)
+        } else ( rho.t[t] = 0 )
+      }
       A.t[t] = rbinom(n=1,size=1, prob = rho.t[t])
       H.t = list("X"=X.t[1:t],"A" = A.t[1:t], "I" = I.t[1:t], "rho" =rho.t[1:t])
       t = t+1
@@ -64,12 +68,11 @@ daily.sim <- function(N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p) 
 daily.sim_c <- compiler::cmpfun(daily.sim)
 
 
-
 daily.data <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p){
   # Generate the daily data for a participant given all the inputs!
-  inside.fn <- function(day) {
+  inside.fn <- function(day) { 
     P.treat = calc.Ptreat(pi,P,daily.treat[day])
-    H.t = daily.sim(N, pi, tau, P.0, P.treat, T+window.length, window.length, min.p, max.p)
+    H.t = daily.sim(N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p)
     Y.t = SMA(H.t$X==1,window.length); Y.t = Y.t[(window.length+1):length(Y.t)]
     data = cbind(day,1:T,Y.t,H.t$A[1:T],H.t$X[1:T], H.t$rho[1:T],H.t$I[1:T])
     return(data[data[,7] == 1,]  )
@@ -84,8 +87,9 @@ full.trial.sim <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p
 
 MRT.sim <- function(num.people, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p) {
   # Do the trial across people!!
-  foreach(i=1:num.people, .combine = "rbind") %dopar% cbind(i,full.trial.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p))
-#   foreach(i=1:num.people, .combine = "rbind") %dopar% full.trial.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p) # no cbind saves 0.32 seconds
+  output = foreach(i=1:num.people, .combine = "rbind") %dopar% cbind(i,full.trial.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p))
+  colnames(output) = c("person", "day", "t", "Y.t","A.t","X,t", "rho.t", "I.t")
+  return(output)  
 }
 
 cov.gen <-  function(t) {
@@ -113,13 +117,13 @@ find.d <- function(bar.d, init.d, max.d, Z.t, num.days) {
 
 rho.function <- function(x, N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p) {
   ## Return the randomization probability for one simulated day
-  H.t = daily.sim(N, pi, tau, P.0, P.treat, T+window.length, window.length, min.p, max.p)
+  H.t = daily.sim(N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p)
   return(H.t$rho*(H.t$I == 1)*(H.t$X == x))
 }
 
 var.function <- function(x, N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p) {
   ## Return the variance of the randomization probability for one simulated day
-  H.t = daily.sim(N, pi, tau, P.0, P.treat, T+window.length, window.length, min.p, max.p)
+  H.t = daily.sim(N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p)
   Y.t = SMA(H.t$X==1,window.length); Y.t = Y.t[(window.length+1):length(Y.t)]
   temp = Y.t*(H.t$I[1:T] == 1)*(H.t$X[1:T] == x)
   return(var(temp[temp!=0]))
@@ -179,8 +183,7 @@ M.function <- function(cov, data, log.weights, person, XWX, fit) {
 }
 
 estimation <- function(people) {
-  colnames(people) = c("person", "day","t","Y.t","A.t","X.t","rho.t","I.t")
-  
+
   Y.t.person = people[,4]
   A.t.person = people[,5]
   X.t.person = people[,6]
@@ -188,7 +191,7 @@ estimation <- function(people) {
   
   B.t.person = t(Vectorize(cov.gen)(people[,2]*people[,3]))
   
-  rho = mean(mean.rho.t1)*pi[1]+mean(mean.rho.t2)*pi[2] # Need to think about choice of rho
+  rho = mean(A.t.person)#mean(mean.rho.t1)*pi[1]+mean(mean.rho.t2)*pi[2] # Need to think about choice of rho
   
   Z.t.person = B.t.person*matrix(rep(people[,4]-rho,3), byrow=TRUE, ncol = 3)
   

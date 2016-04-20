@@ -10,12 +10,14 @@ cl <- makeCluster(c(as.character(hostlist$V1)), type='SOCK')
 
 registerDoParallel(cl)
 
-source('./functions.R'); source('./setup.R')
+source('./setup.R'); source('./ss-calc.R')
 
 ### Estimation procedure given the dataset
-num.iters = 200
+num.iters = 1000
 
 initial.study = foreach(i=1:num.iters, .combine = c) %dopar% estimation.simulation(num.persons, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p)
+
+mean(initial.study)
 
 stopCluster(cl)
 save(initial.study,file="init_study.RData")

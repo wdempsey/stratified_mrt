@@ -1,16 +1,16 @@
-source("./functions.R"); source("./setup.R")
+source("./setup.R")
 
 num.iters = 2000
 x = 1
-sim.output1 = foreach(i=1:num.iters, .combine = "cbind") %dopar% rho.function(x,N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p)
+sim.output1 = foreach(i=1:num.iters, .combine = "cbind") %do% rho.function(x,N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p)
 x = 2
-sim.output2 = foreach(i=1:num.iters, .combine = "cbind") %dopar% rho.function(x,N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p)
+sim.output2 = foreach(i=1:num.iters, .combine = "cbind") %do% rho.function(x,N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p)
 
-mean.rho.t1 = foreach(i=1:720, .combine = "c") %dopar% mean(sim.output1[i,sim.output1[i,]!=0])
-mean.rho.t2 = foreach(i=1:720, .combine = "c") %dopar% mean(sim.output2[i,sim.output2[i,]!=0])
+mean.rho.t1 = foreach(i=1:720, .combine = "c") %do% mean(sim.output1[i,sim.output1[i,]!=0])
+mean.rho.t2 = foreach(i=1:720, .combine = "c") %do% mean(sim.output2[i,sim.output2[i,]!=0])
 
-invvar.rho.t1 = foreach(i=1:720, .combine = "c") %dopar% mean(1/(sim.output1[i,sim.output1[i,]!=0]*(1-sim.output1[i,sim.output1[i,]!=0])))
-invvar.rho.t2 = foreach(i=1:720, .combine = "c") %dopar% mean(1/(sim.output2[i,sim.output2[i,]!=0]*(1-sim.output2[i,sim.output2[i,]!=0])))
+invvar.rho.t1 = foreach(i=1:720, .combine = "c") %do% mean(1/(sim.output1[i,sim.output1[i,]!=0]*(1-sim.output1[i,sim.output1[i,]!=0])))
+invvar.rho.t2 = foreach(i=1:720, .combine = "c") %do% mean(1/(sim.output2[i,sim.output2[i,]!=0]*(1-sim.output2[i,sim.output2[i,]!=0])))
 
 par(mfrow = c(2,1), mar = c(2,4,1,1)+0.1)
 plot(1:720/60,mean.rho.t1, xlab = "", ylab = "Rho | S")
@@ -28,23 +28,23 @@ Z.t = Vectorize(cov.gen)(1:(num.days*T))
 d = find.d(bar.d, init.d, max.d, Z.t, num.days)
 
 term1 = (rep(invvar.rho.t1,num.days))#*tau[1]*pi[1])
-middle.term1 = foreach(i=1:ncol(Z.t), .combine = "+") %dopar% (term1[i]*outer(Z.t[,i],Z.t[,i]))
+middle.term1 = foreach(i=1:ncol(Z.t), .combine = "+") %do% (term1[i]*outer(Z.t[,i],Z.t[,i]))
 
 term2 = (rep(invvar.rho.t2,num.days))#*tau[2]*pi[2])
-middle.term2 = foreach(i=1:ncol(Z.t), .combine = "+") %dopar% (term2[i]*outer(Z.t[,i],Z.t[,i]))
+middle.term2 = foreach(i=1:ncol(Z.t), .combine = "+") %do% (term2[i]*outer(Z.t[,i],Z.t[,i]))
 
-outer.term = foreach(j=1:ncol(Z.t), .combine = "+") %dopar% outer(Z.t[,j],Z.t[,j])
+outer.term = foreach(j=1:ncol(Z.t), .combine = "+") %do% outer(Z.t[,j],Z.t[,j])
 
 Sigma.1 = solve(outer.term,middle.term1)%*%solve(outer.term)/(sum(pi[1]*tau[1]))
 Sigma.2 = solve(outer.term,middle.term2)%*%solve(outer.term)/(sum(pi[2]*tau[2]))
 
 ### sigma^2_x calculation
 
-# num.iters = 500
+# num.iters = 2000
 # x = 1
-# sigma.output1 = foreach(i=1:num.iters, .combine = "cbind") %dopar% var.function(x,N, pi, tau, P.0, P.treat, T, windoparw.length, min.p, max.p)
+# sigma.output1 = foreach(i=1:num.iters, .combine = "cbind") %do% var.function(x,N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p)
 # x = 2
-# sigma.output2 = foreach(i=1:num.iters, .combine = "cbind") %dopar% var.function(x,N, pi, tau, P.0, P.treat, T, windoparw.length, min.p, max.p)
+# sigma.output2 = foreach(i=1:num.iters, .combine = "cbind") %do% var.function(x,N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p)
 
 sigmasq.1 = 0.004321966 #mean(sigma.output1,na.rm = TRUE)
 sigmasq.2 = 0.003752347 #mean(sigma.output2,na.rm = TRUE)
@@ -56,4 +56,4 @@ samp.size.const = b1%*%solve(sigmasq.1* Sigma.1, b1) + b2%*%solve(sigmasq.2 * Si
 
 ss.answer = sample.size(samp.size.const,p = 6,q = 6)
 
-ss.answer
+paste("Sample size of ", ss.answer, " when percent change desired to detect is ", bar.d, ", with conditional expected availability both equal to ", tau[1],".", sep = "")
