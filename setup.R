@@ -27,7 +27,7 @@ max.p = 0.99 # Maximum randomization probability at each time point
 # Treatment assumptions
 init.d = 0 # Initial treatment effect
 max.d = num.days/2 # Day of maximum treatment effect
-bar.d = 0.015 # Avg treatment effect
+bar.d = 0.02 # Avg treatment effect
 
 #### Construct daily treatment vector
 source("./functions.R")

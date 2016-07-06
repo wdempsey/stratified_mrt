@@ -204,13 +204,14 @@ ss.parameters <- function(num.persons, N, pi, tau, P.0, daily.treat, T, window.l
     ## Return the randomization probability for one simulated day
     full.sim = MRT.sim(num.persons, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p)
     full.sim = data.frame(full.sim); colnames(full.sim) = c("person","day", "t", "Y.t", "A.t", "X.t", "rho.t", "I.t", "psi.t")
-    log.integrand = full.sim$A.t*log(full.sim$rho.t)+(1-full.sim$A.t)*log(1-full.sim$rho.t)+log(full.sim$psi.t)
-    full.sim$integrand = exp(log.integrand)
+    full.sim$integrand = 1/(full.sim$rho.t*
+                            (1-full.sim$rho.t)) +
+        (full.sim$psi.t-1)/(1-full.sim$rho.t)
     return(list("exp.est"=aggregate(cbind(integrand)~
                                  X.t+day,
                              data = full.sim,
                              mean, na.rm = TRUE),
-                "sigmasq"=var(full.sim$Y.t))
+                "sigmasq"=var(full.sim$Y.t)))
 }
 
 sample.size <- function(ss.param,p,q,alpha.0 = 0.05,beta.0 = 0.8, max.iters = 10000) {
