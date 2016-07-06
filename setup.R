@@ -14,7 +14,7 @@ eig.P = eigen(P)
 
 pi = (eig.P$vectors%*%diag(c(1,0))%*%solve(eig.P$vectors))[1,]  # Stationary distribution for P
 
-# tau = rep(0.05,2)#c(0.05,0.05) # Expected availability in each group ("Stressed", "Not Stressed")
+tau = rep(0.1,2)#c(0.05,0.05) # Expected availability in each group ("Stressed", "Not Stressed")
 
 # Randomization probability inputs
 N =  c(1.5,1.5) # Avg. number of actions per day in each group ("Stressed", "Not Stressed")
@@ -28,11 +28,11 @@ max.p = 0.999 # Maximum randomization probability at each time point
 #percent.Delta = 0.2 # % decrease in proximal outcome we wish to detect
 init.d = 0 # Initial treatment effect
 max.d = num.days/2 # Day of maximum treatment effect
-# bar.d = 0.01 # Avg treatment effect
+bar.d = 0.015 # Avg treatment effect
 # 
-# source("./functions.R")
+source("./functions.R")
 # ### Treatment vector
-# Z.t = Vectorize(cov.gen)((1:num.days) * T)
-# d = find.d(bar.d,init.d,max.d, Z.t,num.days)
-# daily.treat = t(Z.t)%*%d*1.49 # Times 1.49 to switch from the treatment scale to the effect of stationary distribution scale
+Z.t = Vectorize(cov.gen)((1:num.days) * T)
+d = find.d(bar.d,init.d,max.d, Z.t,num.days)
+daily.treat = -t(Z.t)%*%d
 # 

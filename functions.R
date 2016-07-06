@@ -1,5 +1,5 @@
 ### Functions associated with Sample Size Calculations
-require(foreach); require(TTR)
+require(foreach); require(TTR); require(zoo); require(expm)
 
 ### Simulation functions
 rand.probs <- function(X.t, H.t, T, N, pi, tau, lambda, min.p, max.p) {
@@ -21,17 +21,67 @@ rand.probs <- function(X.t, H.t, T, N, pi, tau, lambda, min.p, max.p) {
   return(rho.t)
 }
 
-calc.Ptreat <- function(pi, P, effect) {
-  ## Calculate the Markov chain under treatment given pi, P, and effect
-  pi2 = c(max(min(pi[1]-effect,1),0), max(min(pi[2]-effect,1),0))
-
-  eig.P2 = eigen(rbind(pi2,pi2))
-
-  test <- function(x) {
-    sum((P - eig.P2$vectors%*%diag(c(1,x))%*%solve(eig.P2$vectors))^2)
+potential.effects <- function(P) {
+  max.delta = 1-diag(P)
+  min.delta = -diag(P)
+  
+  delta.1.range = seq(min.delta[1],max.delta[1],0.005)
+  delta.2.range = seq(min.delta[2],max.delta[2],0.005)
+  
+  direct.treat.X1 = direct.treat.X2 = matrix(nrow = length(delta.1.range), ncol = length(delta.2.range))
+  
+  for (i in 1:length(delta.1.range)) {
+    for(j in 1:length(delta.2.range)) {
+      
+      delta.1 = delta.1.range[i]; delta.2 = delta.2.range[j]
+      
+      P.treat = P + matrix(c(delta.1,-delta.1,-delta.2,delta.2), nrow = 2, ncol = 2, byrow = TRUE)
+      
+      direct.result = list()
+      direct.result$A1 = direct.result$A0 = 0
+      
+      for (k in 1:59) {
+        direct.result$A0 = direct.result$A0 + (P%^%k)[,1]  
+        direct.result$A1 = direct.result$A1 + (P.treat%^%k)[,1]  
+      }
+      
+      temp = (direct.result$A1 - direct.result$A0)/60
+      
+      direct.treat.X1[i,j] = temp[1]; direct.treat.X2[i,j] = temp[2]  
+      
+    }
   }
+  
+  data.frame.treat = matrix(nrow = length(delta.1.range)*length(delta.2.range), ncol = 4)
+  
+  for (i in 1:length(delta.1.range)) {
+    for(j in 1:length(delta.2.range)) {
+      data.frame.treat[(i-1)*length(delta.2.range)+j,] = c(delta.1.range[i],delta.2.range[j],direct.treat.X1[i,j], direct.treat.X2[i,j])
+    }
+  }
+  
+  data.frame.treat = data.frame(data.frame.treat)
+  
+  names(data.frame.treat) = c("delta.1", "delta.2", "treat.X1", "treat.X2")
+  
+  return(data.frame.treat)
+}
 
-  P.treat = eig.P2$vectors%*%diag(c(1,optim(0.5, test,lower=0,upper = 1)$par))%*%solve(eig.P2$vectors)
+calc.Ptreat <- function(P, effect, treatment.data, tol) {
+  
+  obs1 = which(treatment.data$treat.X1 > effect[1] - tol & treatment.data$treat.X1 < effect[1] + tol)
+  obs2 = which(treatment.data$treat.X2 > effect[2] - tol & treatment.data$treat.X2 < effect[2] + tol)
+  
+  if(length(obs1) == 0 | length(obs2) == 0) {stop("no observations of this effect combination with set tolerance level")}
+  
+  fit.obs1 = lm(treatment.data$delta.2[obs1]~treatment.data$delta.1[obs1])
+  fit.obs2 = lm(treatment.data$delta.2[obs2]~treatment.data$delta.1[obs2])
+  
+  delta.1.intersect = -(fit.obs1$coefficients[1] - fit.obs2$coefficients[1])/(fit.obs1$coefficients[2] - fit.obs2$coefficients[2])
+  delta.2.intersect = fit.obs1$coefficients[1] + fit.obs1$coefficients[2]*delta.1.intersect
+  
+  P.treat = P + matrix(c(delta.1.intersect,-delta.1.intersect,-delta.2.intersect,delta.2.intersect), nrow = 2, ncol = 2, byrow = TRUE)
+  
   return(P.treat)
 }
 
@@ -79,27 +129,33 @@ daily.sim <- function(N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p) 
 daily.sim_c <- compiler::cmpfun(daily.sim)
 
 
-daily.data <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p){
+daily.data <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p, treatment.data){
   # Generate the daily data for a participant given all the inputs!
+  
   inside.fn <- function(day) {
-    P.treat = calc.Ptreat(pi,P,daily.treat[day])
+    effect = rep(daily.treat[day],2)
+    P.treat = calc.Ptreat(P,effect,treatment.data, tol=10^(-2))
     H.t = daily.sim(N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p)
-    Y.t = SMA(H.t$X==1,window.length); Y.t = Y.t[(window.length+1):length(Y.t)]
-    data = cbind(day,1:T,Y.t,H.t$A[1:T],H.t$X[1:T], H.t$rho[1:T],H.t$I[1:T])
-    return(data[data[,7] == 1,]  )
+    Y.t = SMA(H.t$X==1,window.length); Y.t = Y.t[(window.length+1):(length(Y.t))]
+    prob.gamma = rollapply(1-H.t$rho, window.length, FUN = prod); prob.gamma = prob.gamma[-1]
+    prob.nu = rollapply((H.t$A==0),window.length, FUN = prod); prob.nu = prob.nu[-1]
+    psi.t = prob.nu/prob.gamma
+    data = cbind(day,1:T,Y.t,H.t$A[1:T],H.t$X[1:T], H.t$rho[1:T],H.t$I[1:T], psi.t)
+    return(data[data[,7] == 1 & data[,8] > 0,]  )
   }
   return(inside.fn)
 }
 
-full.trial.sim <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p) {
+full.trial.sim <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data) {
   # Generate the full trial simulation using a vector of the daily treatment effects
-  foreach(i=1:length(daily.treat), .combine = "rbind", .packages = c("foreach", "TTR")) %dopar% daily.data(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p)(i)
-}
+  foreach(i=1:length(daily.treat), .combine = "rbind", .packages = c("foreach", "TTR","expm","zoo")) %dopar% daily.data(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data)(i)
+} 
 
 MRT.sim <- function(num.people, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p) {
   # Do the trial across people!!
-  output = foreach(i=1:num.people, .combine = "rbind", .packages = c("foreach", "TTR")) %dopar% cbind(i,full.trial.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p))
-  colnames(output) = c("person", "day", "t", "Y.t","A.t","X,t", "rho.t", "I.t")
+  treatment.data = potential.effects(P)
+  output = foreach(i=1:num.people, .combine = "rbind", .packages = c("foreach", "TTR","expm","zoo")) %dopar% cbind(i,full.trial.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data))
+  colnames(output) = c("person", "day", "t", "Y.t","A.t","X,t", "rho.t", "I.t","psi.t")
   return(output)
 }
 
@@ -126,18 +182,18 @@ find.d <- function(bar.d, init.d, max.d, Z.t, num.days) {
   return(d)
 }
 
-rho.function <- function(x, N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p) {
+rho.function <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data) {
   ## Return the randomization probability for one simulated day
-  H.t = daily.sim(N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p)
-  return(H.t$rho*(H.t$I == 1)*(H.t$X == x))
+  full.sim =   full.trial.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data)
+  full.sim = data.frame(full.sim); colnames(full.sim) = c("day", "t", "Y.t", "A.t", "X.t", "rho.t", "I.t", "psi.t")
+  return(aggregate(cbind(rho.t,psi.t)~A.t+X.t+day, data = full.sim, mean, na.rm = TRUE))
 }
 
-var.function <- function(x, N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p) {
-  ## Return the variance of the randomization probability for one simulated day
-  H.t = daily.sim(N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p)
-  Y.t = SMA(H.t$X==1,window.length); Y.t = Y.t[(window.length+1):length(Y.t)]
-  temp = Y.t*(H.t$I[1:T] == 1)*(H.t$X[1:T] == x)*(H.t$A[1:T] == 0)
-  return(var(temp[temp!=0]))
+var.function <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data) {
+  ## Return the randomization probability for one simulated day
+  full.sim =   full.trial.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data)
+  full.sim = data.frame(full.sim); colnames(full.sim) = c("day", "t", "Y.t", "A.t", "X.t", "rho.t", "I.t", "psi.t")
+  return(var(full.sim$Y.t))
 }
 
 sample.size <- function(ss.param,p,q,alpha.0 = 0.05,beta.0 = 0.8, max.iters = 10000) {
@@ -199,11 +255,12 @@ estimation <- function(people) {
   A.t.person = people[,5]
   X.t.person = people[,6]
   rho.t.person = people[,7]
+  psi.t.person = people[,9]
 
   B.t.person = t(Vectorize(cov.gen)((people[,2]-1)*T + people[,3]))
   
   # Set of possible weights depending on unique X.t
-  set.rho = foreach(lvl=1:length(unique(X.t.person)), .combine = "c", .packages = c("foreach", "TTR")) %dopar% mean(A.t.person[X.t.person==lvl], na.rm = TRUE)
+  set.rho = foreach(lvl=1:length(unique(X.t.person)), .combine = "c", .packages = c("foreach", "TTR","expm","zoo")) %dopar% mean(A.t.person[X.t.person==lvl], na.rm = TRUE)
   
   rho.val <- function(lvl) {return(set.rho[lvl])}
   
@@ -215,15 +272,15 @@ estimation <- function(people) {
   
   cov.t.person = cbind(B.t.person,Z.t.person)
 
-  log.weights = A.t.person*(log(rho) - log(rho.t.person)) + (1-A.t.person)*(log(1-rho) - log(1-rho.t.person))
+  log.weights = A.t.person*(log(rho) - log(rho.t.person)) + (1-A.t.person)*(log(1-rho) - log(1-rho.t.person)) + log(psi.t.person)
 
   fit.people = lm(Y.t.person~cov.t.person:as.factor(X.t.person)-1,weights = exp(log.weights))
 
   Covariates = model.matrix(fit.people)
 
-  XWX = foreach(i=1:num.persons, .combine = "+", .packages = c("foreach", "TTR")) %dopar% extract.tXWX(Covariates,people,log.weights,i)
+  XWX = foreach(i=1:num.persons, .combine = "+", .packages = c("foreach", "TTR","expm","zoo")) %dopar% extract.tXWX(Covariates,people,log.weights,i)
 
-  Middle = foreach(person=1:num.persons, .combine = "+", .packages = c("foreach", "TTR")) %dopar% M.function(Covariates, people, log.weights, person,XWX,fit.people)
+  Middle = foreach(person=1:num.persons, .combine = "+", .packages = c("foreach", "TTR","expm","zoo")) %dopar% M.function(Covariates, people, log.weights, person,XWX,fit.people)
 
   entries1 = c(4:6)
   entries2 = c(10:12)
@@ -245,6 +302,7 @@ estimation.simulation <- function(num.persons, N, pi, tau, P.0, daily.treat, T, 
     output = estimation(people)
 
     alpha.0 = 0.05; p = 6; q = 6
+    
     alt.output = (num.persons- q-p)*output / (p*(num.persons-q-1))
   return ( alt.output > qf(1-alpha.0, df1 = p, df2 = num.persons - p-q))
 }
