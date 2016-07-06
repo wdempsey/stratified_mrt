@@ -80,7 +80,25 @@ calc.Ptreat <- function(P, effect, treatment.data, tol) {
   delta.1.intersect = -(fit.obs1$coefficients[1] - fit.obs2$coefficients[1])/(fit.obs1$coefficients[2] - fit.obs2$coefficients[2])
   delta.2.intersect = fit.obs1$coefficients[1] + fit.obs1$coefficients[2]*delta.1.intersect
 
-  P.treat = P + matrix(c(delta.1.intersect,-delta.1.intersect,-delta.2.intersect,delta.2.intersect), nrow = 2, ncol = 2, byrow = TRUE)
+    P.treat = P + matrix(c(delta.1.intersect,-delta.1.intersect,-delta.2.intersect,delta.2.intersect), nrow = 2, ncol = 2, byrow = TRUE)
+
+
+  ## Quick check on treatment effect
+
+    direct.result = list()
+    direct.result$A1 = direct.result$A0 = 0
+
+    for (k in 1:60) {
+        direct.result$A0 = direct.result$A0 + (P%^%k)[,1]
+        direct.result$A1 = direct.result$A1 + (P.treat%^%k)[,1]
+    }
+
+    temp = (direct.result$A1 - direct.result$A0)/60
+
+    if(!all(abs(temp - effect)< tol)){
+        stop("no observations of this effect combination with set tolerance level")
+    }
+
 
   return(P.treat)
 }
@@ -103,7 +121,7 @@ daily.sim <- function(N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p) 
       if(t > T) {
         I.t[t] = 0; rho.t[t] = 0
       } else{
-        I.t[t] = rbinom(n=1,size = 1, prob=tau[X.t])
+        I.t[t] = rbinom(n=1,size = 1, prob=tau[X.t[t]])
         if( I.t[t] == 1) {
           rho.t[t] = rand.probs(X.t[t], H.t, T, N, pi, tau, lambda, min.p, max.p)
         } else ( rho.t[t] = 0 )
@@ -112,15 +130,15 @@ daily.sim <- function(N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p) 
       H.t = list("X"=X.t[1:t],"A" = A.t[1:t], "I" = I.t[1:t], "rho" =rho.t[1:t])
       t = t+1
     } else {
-      for(t.prime in t:(t+window.length-1)){
-        X.t[t.prime] = sample(1:nrow(P.0), size = 1, prob = P.treat[X.t[t.prime-1],])
-      }
-      I.t[t:(t+window.length-1)] = 0
-      rho.t[t:(t+window.length-1)] = 0
-      A.t[t:(t+window.length-1)] = 0
-      H.t = list("X"=X.t[1:(t+window.length-1)],"A" = A.t[1:(t+window.length-1)],
-                 "I" = I.t[1:(t+window.length-1)], "rho" =rho.t[1:(t+window.length-1)])
-      t = t+window.length
+        I.t[t:(t+window.length-1)] = 0
+        rho.t[t:(t+window.length-1)] = 0
+        A.t[t:(t+window.length-1)] = 0
+        for(t.prime in t:(t+window.length-1)){
+            X.t[t.prime] = sample(1:nrow(P.0), size = 1, prob = P.treat[X.t[t.prime-1],])
+        }
+        H.t = list("X"=X.t[1:(t+window.length-1)],"A" = A.t[1:(t+window.length-1)],
+                   "I" = I.t[1:(t+window.length-1)], "rho" =rho.t[1:(t+window.length-1)])
+        t = t+window.length
     }
   }
   return(H.t)
@@ -182,18 +200,17 @@ find.d <- function(bar.d, init.d, max.d, Z.t, num.days) {
   return(d)
 }
 
-rho.function <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data) {
-  ## Return the randomization probability for one simulated day
-  full.sim =   full.trial.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data)
-  full.sim = data.frame(full.sim); colnames(full.sim) = c("day", "t", "Y.t", "A.t", "X.t", "rho.t", "I.t", "psi.t")
-  return(aggregate(cbind(rho.t,psi.t)~A.t+X.t+day, data = full.sim, mean, na.rm = TRUE))
-}
-
-var.function <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data) {
-  ## Return the randomization probability for one simulated day
-  full.sim =   full.trial.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data)
-  full.sim = data.frame(full.sim); colnames(full.sim) = c("day", "t", "Y.t", "A.t", "X.t", "rho.t", "I.t", "psi.t")
-  return(var(full.sim$Y.t))
+ss.parameters <- function(num.persons, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p) {
+    ## Return the randomization probability for one simulated day
+    full.sim = MRT.sim(num.persons, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p)
+    full.sim = data.frame(full.sim); colnames(full.sim) = c("person","day", "t", "Y.t", "A.t", "X.t", "rho.t", "I.t", "psi.t")
+    log.integrand = full.sim$A.t*log(full.sim$rho.t)+(1-full.sim$A.t)*log(1-full.sim$rho.t)+log(full.sim$psi.t)
+    full.sim$integrand = exp(log.integrand)
+    return(list("exp.est"=aggregate(cbind(integrand)~
+                                 X.t+day,
+                             data = full.sim,
+                             mean, na.rm = TRUE),
+                "sigmasq"=var(full.sim$Y.t))
 }
 
 sample.size <- function(ss.param,p,q,alpha.0 = 0.05,beta.0 = 0.8, max.iters = 10000) {
