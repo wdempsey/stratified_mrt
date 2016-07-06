@@ -24,64 +24,64 @@ rand.probs <- function(X.t, H.t, T, N, pi, tau, lambda, min.p, max.p) {
 potential.effects <- function(P) {
   max.delta = 1-diag(P)
   min.delta = -diag(P)
-  
+
   delta.1.range = seq(min.delta[1],max.delta[1],0.005)
   delta.2.range = seq(min.delta[2],max.delta[2],0.005)
-  
+
   direct.treat.X1 = direct.treat.X2 = matrix(nrow = length(delta.1.range), ncol = length(delta.2.range))
-  
+
   for (i in 1:length(delta.1.range)) {
     for(j in 1:length(delta.2.range)) {
-      
+
       delta.1 = delta.1.range[i]; delta.2 = delta.2.range[j]
-      
+
       P.treat = P + matrix(c(delta.1,-delta.1,-delta.2,delta.2), nrow = 2, ncol = 2, byrow = TRUE)
-      
+
       direct.result = list()
       direct.result$A1 = direct.result$A0 = 0
-      
-      for (k in 1:59) {
-        direct.result$A0 = direct.result$A0 + (P%^%k)[,1]  
-        direct.result$A1 = direct.result$A1 + (P.treat%^%k)[,1]  
+
+      for (k in 1:60) {
+        direct.result$A0 = direct.result$A0 + (P%^%k)[,1]
+        direct.result$A1 = direct.result$A1 + (P.treat%^%k)[,1]
       }
-      
+
       temp = (direct.result$A1 - direct.result$A0)/60
-      
-      direct.treat.X1[i,j] = temp[1]; direct.treat.X2[i,j] = temp[2]  
-      
+
+      direct.treat.X1[i,j] = temp[1]; direct.treat.X2[i,j] = temp[2]
+
     }
   }
-  
+
   data.frame.treat = matrix(nrow = length(delta.1.range)*length(delta.2.range), ncol = 4)
-  
+
   for (i in 1:length(delta.1.range)) {
     for(j in 1:length(delta.2.range)) {
       data.frame.treat[(i-1)*length(delta.2.range)+j,] = c(delta.1.range[i],delta.2.range[j],direct.treat.X1[i,j], direct.treat.X2[i,j])
     }
   }
-  
+
   data.frame.treat = data.frame(data.frame.treat)
-  
+
   names(data.frame.treat) = c("delta.1", "delta.2", "treat.X1", "treat.X2")
-  
+
   return(data.frame.treat)
 }
 
 calc.Ptreat <- function(P, effect, treatment.data, tol) {
-  
+
   obs1 = which(treatment.data$treat.X1 > effect[1] - tol & treatment.data$treat.X1 < effect[1] + tol)
   obs2 = which(treatment.data$treat.X2 > effect[2] - tol & treatment.data$treat.X2 < effect[2] + tol)
-  
+
   if(length(obs1) == 0 | length(obs2) == 0) {stop("no observations of this effect combination with set tolerance level")}
-  
+
   fit.obs1 = lm(treatment.data$delta.2[obs1]~treatment.data$delta.1[obs1])
   fit.obs2 = lm(treatment.data$delta.2[obs2]~treatment.data$delta.1[obs2])
-  
+
   delta.1.intersect = -(fit.obs1$coefficients[1] - fit.obs2$coefficients[1])/(fit.obs1$coefficients[2] - fit.obs2$coefficients[2])
   delta.2.intersect = fit.obs1$coefficients[1] + fit.obs1$coefficients[2]*delta.1.intersect
-  
+
   P.treat = P + matrix(c(delta.1.intersect,-delta.1.intersect,-delta.2.intersect,delta.2.intersect), nrow = 2, ncol = 2, byrow = TRUE)
-  
+
   return(P.treat)
 }
 
@@ -131,7 +131,7 @@ daily.sim_c <- compiler::cmpfun(daily.sim)
 
 daily.data <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p, treatment.data){
   # Generate the daily data for a participant given all the inputs!
-  
+
   inside.fn <- function(day) {
     effect = rep(daily.treat[day],2)
     P.treat = calc.Ptreat(P,effect,treatment.data, tol=10^(-2))
@@ -149,7 +149,7 @@ daily.data <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, ma
 full.trial.sim <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data) {
   # Generate the full trial simulation using a vector of the daily treatment effects
   foreach(i=1:length(daily.treat), .combine = "rbind", .packages = c("foreach", "TTR","expm","zoo")) %dopar% daily.data(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data)(i)
-} 
+}
 
 MRT.sim <- function(num.people, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p) {
   # Do the trial across people!!
@@ -258,18 +258,18 @@ estimation <- function(people) {
   psi.t.person = people[,9]
 
   B.t.person = t(Vectorize(cov.gen)((people[,2]-1)*T + people[,3]))
-  
+
   # Set of possible weights depending on unique X.t
   set.rho = foreach(lvl=1:length(unique(X.t.person)), .combine = "c", .packages = c("foreach", "TTR","expm","zoo")) %dopar% mean(A.t.person[X.t.person==lvl], na.rm = TRUE)
-  
+
   rho.val <- function(lvl) {return(set.rho[lvl])}
-  
+
   rho = unlist(lapply(X.t.person,rho.val))
-  
+
   #rho = mean(A.t.person)#mean(mean.rho.t1)*pi[1]+mean(mean.rho.t2)*pi[2] # Need to think about choice of rho
 
   Z.t.person = B.t.person* matrix(rep(people[,5]-rho,3), ncol = 3)
-  
+
   cov.t.person = cbind(B.t.person,Z.t.person)
 
   log.weights = A.t.person*(log(rho) - log(rho.t.person)) + (1-A.t.person)*(log(1-rho) - log(1-rho.t.person)) + log(psi.t.person)
@@ -288,10 +288,10 @@ estimation <- function(people) {
 
   Sigma1 = solve(XWX[entries1,entries1],Middle[entries1,entries1])%*%solve(XWX[entries1,entries1])
   Sigma2 = solve(XWX[entries2,entries2],Middle[entries2,entries2])%*%solve(XWX[entries2,entries2])
-  
+
   output1 = (fit.people$coefficients[entries1]%*%solve(Sigma1, fit.people$coefficients[entries1]))
   output2 = (fit.people$coefficients[entries2]%*%solve(Sigma2, fit.people$coefficients[entries2]))
-  
+
   return(output1+output2)
 }
 
@@ -302,7 +302,7 @@ estimation.simulation <- function(num.persons, N, pi, tau, P.0, daily.treat, T, 
     output = estimation(people)
 
     alpha.0 = 0.05; p = 6; q = 6
-    
+
     alt.output = (num.persons- q-p)*output / (p*(num.persons-q-1))
   return ( alt.output > qf(1-alpha.0, df1 = p, df2 = num.persons - p-q))
 }
