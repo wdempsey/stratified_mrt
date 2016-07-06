@@ -21,18 +21,18 @@ N =  c(1.5,1.5) # Avg. number of actions per day in each group ("Stressed", "Not
 
 lambda = 0.3 # Smoothing parameter in the randomization formula
 
-min.p = 0.001 # Minimum randomization probability at each time point
-max.p = 0.999 # Maximum randomization probability at each time point
+min.p = 0.01 # Minimum randomization probability at each time point
+max.p = 0.99 # Maximum randomization probability at each time point
 
 # Treatment assumptions
-#percent.Delta = 0.2 # % decrease in proximal outcome we wish to detect
 init.d = 0 # Initial treatment effect
 max.d = num.days/2 # Day of maximum treatment effect
 bar.d = 0.015 # Avg treatment effect
-#
+
+#### Construct daily treatment vector
 source("./functions.R")
-# ### Treatment vector
 Z.t = Vectorize(cov.gen)((1:num.days) * T)
 d = find.d(bar.d,init.d,max.d, Z.t,num.days)
 daily.treat = -t(Z.t)%*%d
-#
+
+
