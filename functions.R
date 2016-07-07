@@ -300,7 +300,7 @@ estimation <- function(people) {
 
   Middle = foreach(person=1:num.persons, .combine = "+", .packages = c("foreach", "TTR","expm","zoo")) %dopar% M.function(Covariates, people, log.weights, person,XWX,fit.people)
 
-  entries1 = c(4:6)
+  entries1 = c(7:9)
   entries2 = c(10:12)
   entries = c(entries1,entries2)
   
