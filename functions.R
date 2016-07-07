@@ -284,17 +284,17 @@ estimation <- function(people) {
 
   rho = unlist(lapply(X.t.person,rho.val))
 
-  #rho = mean(A.t.person)#mean(mean.rho.t1)*pi[1]+mean(mean.rho.t2)*pi[2] # Need to think about choice of rho
-
-  Z.t.person = B.t.person* matrix(rep(people[,5]-rho,3), ncol = 3)
+  Z.t.person = B.t.person*matrix(rep(A.t.person-rho,3), ncol = 3)
 
   cov.t.person = cbind(B.t.person,Z.t.person)
 
   log.weights = A.t.person*(log(rho) - log(rho.t.person)) + (1-A.t.person)*(log(1-rho) - log(1-rho.t.person)) + log(psi.t.person)
-
-  fit.people = lm(Y.t.person~cov.t.person:as.factor(X.t.person)-1,weights = exp(log.weights))
+  
+  fit.people = lm(Y.t.person~(B.t.person+Z.t.person):as.factor(X.t.person)-1,weights = exp(log.weights))
 
   Covariates = model.matrix(fit.people)
+  
+  num.persons = length(unique(people[,1]))
 
   XWX = foreach(i=1:num.persons, .combine = "+", .packages = c("foreach", "TTR","expm","zoo")) %dopar% extract.tXWX(Covariates,people,log.weights,i)
 
@@ -303,14 +303,12 @@ estimation <- function(people) {
   entries1 = c(4:6)
   entries2 = c(10:12)
   entries = c(entries1,entries2)
+  
+  Sigma = solve(XWX,Middle)%*%solve(XWX)
 
-  Sigma1 = solve(XWX[entries1,entries1],Middle[entries1,entries1])%*%solve(XWX[entries1,entries1])
-  Sigma2 = solve(XWX[entries2,entries2],Middle[entries2,entries2])%*%solve(XWX[entries2,entries2])
+  output = (fit.people$coefficients[entries]%*%solve(Sigma[entries,entries], fit.people$coefficients[entries]))
 
-  output1 = (fit.people$coefficients[entries1]%*%solve(Sigma1, fit.people$coefficients[entries1]))
-  output2 = (fit.people$coefficients[entries2]%*%solve(Sigma2, fit.people$coefficients[entries2]))
-
-  return(output1+output2)
+  return(output)
 }
 
 estimation.simulation <- function(num.persons, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p) {
