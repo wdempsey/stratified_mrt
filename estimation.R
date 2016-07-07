@@ -33,7 +33,6 @@ for(k in 1:nrow(ss.data)) {
     
     print(c(ss.data[k,],pc[k]))
     
-  }
 }
 
 ss.data = cbind(ss.data,pc)
