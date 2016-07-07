@@ -1,4 +1,4 @@
-ss.data = c(
+ss.data = matrix(c(
   0.02, 0.05, 18,
   0.015, 0.05, 24,
   0.01, 0.05, 37,
@@ -11,6 +11,6 @@ ss.data = c(
   0.015, 0.2, 19,
   0.01, 0.2, 28,
   0.005, 0.2, 79
-)
+),ncol = 3, byrow= TRUE)
 
 save(ss.data, file="ss.RData")

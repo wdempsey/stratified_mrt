@@ -14,7 +14,7 @@ eig.P = eigen(P)
 
 pi = (eig.P$vectors%*%diag(c(1,0))%*%solve(eig.P$vectors))[1,]  # Stationary distribution for P
 
-tau = rep(0.1,2) # Expected availability in each group ("Stressed", "Not Stressed")
+tau = rep(0.05,2) # Expected availability in each group ("Stressed", "Not Stressed")
 
 # Randomization probability inputs
 N =  c(1.5,1.5) # Avg. number of actions per day in each group ("Stressed", "Not Stressed")
@@ -27,7 +27,7 @@ max.p = 0.99 # Maximum randomization probability at each time point
 # Treatment assumptions
 init.d = 0 # Initial treatment effect
 max.d = num.days/2 # Day of maximum treatment effect
-bar.d = 0.02 # Avg treatment effect
+bar.d = 0.005 # Avg treatment effect
 
 #### Construct daily treatment vector
 source("./functions.R")
