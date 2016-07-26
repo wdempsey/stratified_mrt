@@ -11,27 +11,45 @@ cl <- makeCluster(c(as.character(hostlist$V1)), type='SOCK')
 registerDoParallel(cl)
 
 source('./setup.R'); source("./functions.R")
-load("ss.RData")
 
-pc = vector(length = nrow(ss.data))
+tau.set = c(0.05,0.1,0.2)
+bar.beta.set = c(0.005,0.01,0.015,0.02)
 
-for(k in 1:nrow(ss.data)) {
-    current.tau = rep(ss.data[k,2],length(N))
+ss = pc = matrix(nrow = length(bar.beta.set), ncol = length(tau.set))
+
+for(i in 1:length(bar.beta.set)) {
+  for(j in 1:length(tau.set)) {
+    tau = rep(tau.set[j],length(N))
+    
     ### Treatment vector
     Z.t = Vectorize(cov.gen)((1:num.days) * T)
-    d = find.d(ss.data[k,1],init.d,max.d, Z.t,num.days)
+    d = find.d(bar.beta.set[i],init.d,max.d,Z.t,num.days)
     daily.treat = -t(Z.t)%*%d
-
-    num.persons = ss.data[k,3]
+    
+    num.iters.ss = 500
+    Sigma.params = ss.parameters(num.iters.ss, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p)
+    Q = Sigma.params[1:6,]; W = Sigma.params[7:12,]
+    bar.sigma.sq = 5.113 * 10^(-3)
+    
+    Sigma = solve(Q,W)%*%solve(Q)
+    
+    b1 =  d # Unstandardized effect sizes
+    b2 = d # Unstandardized effect sizes
+    beta = c(b1,b2)
+    
+    samp.size.const = beta%*%solve(bar.sigma.sq*Sigma, beta)
+    
+    num.persons = sample.size(samp.size.const,p = 6,q = 6)    
     
     num.iters = 1000
     
-    initial.study = foreach(i=1:num.iters, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dopar% 
-      estimation.simulation(num.persons, N, pi, current.tau, P.0, daily.treat, T, window.length, min.p, max.p)
+    initial.study = foreach(k=1:num.iters, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dopar% 
+      estimation.simulation(num.persons, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p)
+
+    ss[i,j] = num.persons
+    pc[i,j] = mean(initial.study)
     
-    pc[k] = mean(initial.study)
-    
-    print(c(ss.data[k,],pc[k]))
+    print(bar.beta.set[i], tau.set[j],num.persons,mean(initial.study))
     
 }
 
