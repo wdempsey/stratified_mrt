@@ -14,8 +14,9 @@ source('./setup.R'); source("./functions.R")
 
 tau.set = c(0.05,0.1,0.2)
 bar.beta.set = c(0.005,0.01,0.015,0.02)
+ss = matrix(c(216,188,180,58,53,50,33,29,27,23,22,21), nrow = 4, byrow = TRUE)
 
-ss = pc = matrix(nrow = length(bar.beta.set), ncol = length(tau.set))
+pc = matrix(nrow = length(bar.beta.set), ncol = length(tau.set))
 
 for(i in 1:length(bar.beta.set)) {
   for(j in 1:length(tau.set)) {
@@ -26,35 +27,39 @@ for(i in 1:length(bar.beta.set)) {
     d = find.d(bar.beta.set[i],init.d,max.d,Z.t,num.days)
     daily.treat = -t(Z.t)%*%d
     
-    num.iters.ss = 500
-    Sigma.params = ss.parameters(num.iters.ss, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p)
-    Q = Sigma.params[1:6,]; W = Sigma.params[7:12,]
-    bar.sigma.sq = 5.113 * 10^(-3)
+    #     num.iters.ss = 500
+    #     Sigma.params = ss.parameters(num.iters.ss, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p)
+    #     Q = Sigma.params[1:6,]; W = Sigma.params[7:12,]
+    #     bar.sigma.sq = 5.113 * 10^(-3)
+    #     
+    #     Sigma = solve(Q,W)%*%solve(Q)
+    #     
+    #     b1 =  d # Unstandardized effect sizes
+    #     b2 = d # Unstandardized effect sizes
+    #     beta = c(b1,b2)
+    #     
+    #     samp.size.const = beta%*%solve(bar.sigma.sq*Sigma, beta)
+    #     
+    #     num.persons = sample.size(samp.size.const,p = 6,q = 6)    
     
-    Sigma = solve(Q,W)%*%solve(Q)
-    
-    b1 =  d # Unstandardized effect sizes
-    b2 = d # Unstandardized effect sizes
-    beta = c(b1,b2)
-    
-    samp.size.const = beta%*%solve(bar.sigma.sq*Sigma, beta)
-    
-    num.persons = sample.size(samp.size.const,p = 6,q = 6)    
-    
+    num.persons = ss[i,j]
+      
+    print(c(bar.beta.set[i], tau.set[j],num.persons))
+          
     num.iters = 1000
     
     initial.study = foreach(k=1:num.iters, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dopar% 
       estimation.simulation(num.persons, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p)
 
-    ss[i,j] = num.persons
+    #     ss[i,j] = num.persons
     pc[i,j] = mean(initial.study)
     
-    print(bar.beta.set[i], tau.set[j],num.persons,mean(initial.study))
+    print(c(bar.beta.set[i], tau.set[j],num.persons,mean(initial.study)))
     
 }
 
-ss.data = cbind(ss.data,pc)
+print(pc)
 
 stopCluster(cl)
-save(ss.data,file="ss_with_power.RData")
+save(power.data,file="power.RData")
 

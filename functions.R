@@ -152,7 +152,7 @@ daily.data <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, ma
 
   inside.fn <- function(day) {
     effect = rep(daily.treat[day],2)
-    P.treat = calc.Ptreat(P,effect,treatment.data, tol=10^(-2))
+    P.treat = calc.Ptreat(P.0,effect,treatment.data, tol=10^(-2))
     H.t = daily.sim(N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p)
     Y.t = SMA(H.t$X==2,window.length); Y.t = Y.t[(window.length+1):(length(Y.t))]
     prob.gamma = rollapply(1-H.t$rho, window.length, FUN = prod); prob.gamma = prob.gamma[-1]
@@ -287,9 +287,11 @@ estimation <- function(people) {
   # Set of possible weights depending on unique X.t
   set.rho = foreach(lvl=1:length(unique(X.t.person)), .combine = "c", .packages = c("foreach", "TTR","expm","zoo")) %dopar% mean(rho.t.person[X.t.person==lvl], na.rm = TRUE)
 
-  rho.val <- function(lvl) {return(set.rho[lvl])}
+#   rho.val <- function(lvl) {
+#     return(set.rho[lvl])
+#   }
 
-  rho = unlist(lapply(X.t.person,rho.val))
+  rho = unlist(lapply(X.t.person,tilde.p))
 
   Z.t.person = B.t.person*matrix(rep(A.t.person-rho,3), ncol = 3)
 
@@ -333,8 +335,8 @@ estimation.simulation <- function(num.persons, N, pi, tau, P.0, daily.treat, T, 
 
 
 #### SS-Calculation functions
-tilde.p <- function(X.t, H.t) {
-  mean(H.t$rho[H.t$X == X.t & H.t$I == 1])
+tilde.p <- function(X.t) {
+  N[X.t]/((T-120)*pi[X.t]*tau[X.t])
 }
 
 gamma.st <- function(s,t) {
@@ -347,7 +349,7 @@ ss.daily.data <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p,
   
   inside.fn <- function(day) {
     effect = rep(daily.treat[day],2)
-    P.treat = calc.Ptreat(P,effect,treatment.data, tol=10^(-2))
+    P.treat = calc.Ptreat(P.0,effect,treatment.data, tol=10^(-2))
     H.t = daily.sim(N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p)
     Y.t = SMA(H.t$X==1,window.length); Y.t = Y.t[(window.length+1):(length(Y.t))]
     prob.gamma = rollapply(1-H.t$rho, window.length, FUN = prod); prob.gamma = prob.gamma[-1]
@@ -358,16 +360,18 @@ ss.daily.data <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p,
     obs.times = data[data[,6]==1 & data[,7] > 0,2]
     for(i in 1:(length(obs.times))) {
       ob.t = obs.times[i] ; f_at_obt = f.t(ob.t+ T*day, H.t$X[ob.t]) 
-      p.t = tilde.p(H.t$X[ob.t],H.t)
-      Q = Q + p.t*(1-p.t)*outer(f_at_obt,f_at_obt)
-      W.first_term = W.first_term + p.t^2*(1-p.t)^2*outer(f_at_obt,f_at_obt)*data[ob.t,7]^2
+      p.t = tilde.p(H.t$X[ob.t])
+      add.weight.t = (p.t/H.t$rho[ob.t])^(H.t$A[ob.t]) * ((1-p.t)/(1-H.t$rho[ob.t]))^(1-H.t$A[ob.t])
+      Q = Q + (H.t$A[ob.t]-p.t)^2*add.weight.t*psi.t[ob.t]*outer(f_at_obt,f_at_obt)
+      W.first_term = W.first_term + (H.t$A[ob.t]-p.t)^2*add.weight.t^2*psi.t[ob.t]^2*outer(f_at_obt,f_at_obt)
       if(i < length(obs.times)) {
         for(j in (i+1):length(obs.times)) {
           min.time = min(obs.times[c(i,j)]); max.time = max(obs.times[c(i,j)])
           if(abs(obs.times[i]-obs.times[j]) < window.length) {
-            sign = (-1)^(H.t$A[min.time]==1)
-            p.s = tilde.p(H.t$X[min.time],H.t); p.t = tilde.p(H.t$X[max.time],H.t)
-            coefficient = sign/prod(1-data[(max.time):(min.time+window.length),5])^2*p.s*(1-p.s)*p.t*(1-p.t)*gamma.st(min.time,max.time)
+            p.min = tilde.p(H.t$X[min.time]); p.max = tilde.p(H.t$X[max.time])
+            add.weight.max = (p.max/H.t$rho[max.time])^(H.t$A[max.time]) * ((1-p.max)/(1-H.t$rho[max.time]))^(1-H.t$A[max.time])
+            add.weight.min = (p.min/H.t$rho[min.time])^(H.t$A[min.time]) * ((1-p.min)/(1-H.t$rho[min.time]))^(1-H.t$A[min.time])            
+            coefficient = psi.t[max.time]*psi.t[min.time]*add.weight.max*add.weight.min*(H.t$A[max.time]-p.max)*(H.t$A[min.time]-p.min)
             f.t_f.s = outer(f.t(min.time+ T*day, H.t$X[min.time]),f.t(max.time+ T*day, H.t$X[max.time]))
             W.second_term = W.second_term + coefficient * (f.t_f.s+t(f.t_f.s))
           }
