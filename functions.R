@@ -341,7 +341,7 @@ tilde.p <- function(X.t) {
 
 gamma.st <- function(s,t) {
   ### Simple correlation model
-  1-abs(s-t)*6.39*10^(-3)
+  max(1-abs(s-t)*1.70*10^(-2),0)
 }
 
 ss.daily.data <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p, treatment.data){

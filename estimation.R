@@ -42,24 +42,24 @@ for(i in 1:length(bar.beta.set)) {
     
     num.persons = sample.size(samp.size.const,p = 6,q = 6)    
     
-    num.persons = ss[i,j]
+    ss[i,j] = num.persons
       
     print(c(bar.beta.set[i], tau.set[j],num.persons))
           
-    num.iters = 1000
-    
-    initial.study = foreach(k=1:num.iters, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dopar% 
-      estimation.simulation(num.persons, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p)
+#     num.iters = 1000
+#     
+#     initial.study = foreach(k=1:num.iters, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dopar% 
+#       estimation.simulation(num.persons, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p)
 
     ss[i,j] = num.persons
-    pc[i,j] = mean(initial.study)
+#     pc[i,j] = mean(initial.study)
     
-    print(c(bar.beta.set[i], tau.set[j],num.persons,mean(initial.study)))
+#     print(c(bar.beta.set[i], tau.set[j],num.persons,mean(initial.study)))
   }    
 }
 
 print(ss)
-print(pc)
+# print(pc)
 
 stopCluster(cl)
 save(ss,file="sample_size.RData")

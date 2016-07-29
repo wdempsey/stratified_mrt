@@ -2,7 +2,7 @@
 
 num.persons = 17 # Number of persons in the study
 
-T = 720 # Number of timepoints per day
+T = 600 # Number of timepoints per day
 
 num.days = 10 # Number of days the study will be conducted
 
