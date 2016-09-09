@@ -336,7 +336,7 @@ estimation.simulation <- function(num.persons, N, pi, tau, P.0, daily.treat, T, 
 
 #### SS-Calculation functions
 tilde.p <- function(X.t) {
-  N[X.t]/((T-120)*pi[X.t]*tau[X.t])
+  N[X.t]/((T-60*2)*pi[X.t]*tau[X.t])
 }
 
 gamma.st <- function(s,t) {

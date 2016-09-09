@@ -27,7 +27,8 @@ for(i in 1:length(bar.beta.set)) {
     d = find.d(bar.beta.set[i],init.d,max.d,Z.t,num.days)
     daily.treat = -t(Z.t)%*%d
     
-    num.iters.ss = 1000
+    # Calculate the Sample Size --> Still and issue that the ss is highly variable
+    num.iters.ss = 200
     Sigma.params = ss.parameters(num.iters.ss, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p)
     Q = Sigma.params[1:6,]; W = Sigma.params[7:12,]
     bar.sigma.sq = 5.113 * 10^(-3)
@@ -46,22 +47,23 @@ for(i in 1:length(bar.beta.set)) {
       
     print(c(bar.beta.set[i], tau.set[j],num.persons))
           
-#     num.iters = 1000
-#     
-#     initial.study = foreach(k=1:num.iters, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dopar% 
-#       estimation.simulation(num.persons, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p)
+    num.iters = 1000
+    
+    initial.study = foreach(k=1:num.iters, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dopar% 
+      estimation.simulation(num.persons, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p)
 
     ss[i,j] = num.persons
-#     pc[i,j] = mean(initial.study)
+    pc[i,j] = mean(initial.study)
     
-#     print(c(bar.beta.set[i], tau.set[j],num.persons,mean(initial.study)))
+    print(c(bar.beta.set[i], tau.set[j],num.persons,mean(initial.study)))
   }    
 }
 
 print(ss)
-# print(pc)
+print(pc)
 
-stopCluster(cl)
 save(ss,file="sample_size.RData")
 save(pc,file="power.RData")
+
+stopCluster(cl)
 
