@@ -9,6 +9,7 @@ num.days = 10 # Number of days the study will be conducted
 window.length = 60 # Window length for the calculating proximal outcome
 
 P = matrix(c(0.667,0.053,0.289,0.325), nrow = 2,byrow = TRUE)
+#P = matrix(c(0.85,0.15,0.47,0.53), nrow = 2,byrow = TRUE)
 
 P[1,] = P[1,]/sum(P[1,]); P[2,] = P[2,]/sum(P[2,])
 
@@ -29,7 +30,7 @@ max.p = 0.999 # Maximum randomization probability at each time point
 # Treatment assumptions
 init.d = 0 # Initial treatment effect
 max.d = num.days/2 # Day of maximum treatment effect
-bar.d = 0.02 # Avg treatment effect
+bar.d = 0.01 # Avg treatment effect
 
 #### Construct daily treatment vector
 source("./functions.R")

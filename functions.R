@@ -80,8 +80,7 @@ calc.Ptreat <- function(P, effect, treatment.data, tol) {
   delta.1.intersect = -(fit.obs1$coefficients[1] - fit.obs2$coefficients[1])/(fit.obs1$coefficients[2] - fit.obs2$coefficients[2])
   delta.2.intersect = fit.obs1$coefficients[1] + fit.obs1$coefficients[2]*delta.1.intersect
 
-    P.treat = P + matrix(c(delta.1.intersect,-delta.1.intersect,-delta.2.intersect,delta.2.intersect), nrow = 2, ncol = 2, byrow = TRUE)
-
+  P.treat = P + matrix(c(delta.1.intersect,-delta.1.intersect,-delta.2.intersect,delta.2.intersect), nrow = 2, ncol = 2, byrow = TRUE)
 
   ## Quick check on treatment effect
 
@@ -155,6 +154,7 @@ daily.data <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, ma
     P.treat = calc.Ptreat(P.0,effect,treatment.data, tol=10^(-2))
     H.t = daily.sim(N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p)
     Y.t = SMA(H.t$X==2,window.length); Y.t = Y.t[(window.length+1):(length(Y.t))]
+    #Y.t = sim1_Y(H.t,day,d)[1:T]
     prob.gamma = rollapply(1-H.t$rho, window.length, FUN = prod); prob.gamma = prob.gamma[-1]
     prob.nu = rollapply((H.t$A==0),window.length, FUN = prod); prob.nu = prob.nu[-1]
     psi.t = prob.nu/prob.gamma
@@ -210,7 +210,7 @@ find.d <- function(bar.d, init.d, max.d, Z.t, num.days) {
 #     ## Return the randomization probability for one simulated day
 #     full.sim = MRT.sim(num.persons, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p)
 #     full.sim = data.frame(full.sim); colnames(full.sim) = c("person","day", "t", "Y.t", "A.t", "X.t", "rho.t", "I.t", "psi.t")
-#     full.sim$log.integrand = 2 * (-full.sim$A.t * log(full.sim$rho.t) - 
+#     full.sim$log.integrand = 2 * (-full.sim$A.t * log(full.sim$rho.t) -
 #                                     (1-full.sim$A.t)*log(1-full.sim$rho.t)) +
 #                                     log(full.sim$psi.t)
 #     full.sim$integrand = exp(full.sim$log.integrand)
@@ -298,11 +298,11 @@ estimation <- function(people) {
   cov.t.person = cbind(B.t.person,Z.t.person)
 
   log.weights = A.t.person*(log(rho) - log(rho.t.person)) + (1-A.t.person)*(log(1-rho) - log(1-rho.t.person)) + log(psi.t.person)
-  
+
   fit.people = lm(Y.t.person~(B.t.person+Z.t.person):as.factor(X.t.person)-1,weights = exp(log.weights))
 
   Covariates = model.matrix(fit.people)
-  
+
   num.persons = length(unique(people[,1]))
 
   XWX = foreach(i=1:num.persons, .combine = "+", .packages = c("foreach", "TTR","expm","zoo")) %dopar% extract.tXWX(Covariates,people,log.weights,i)
@@ -312,7 +312,7 @@ estimation <- function(people) {
   entries1 = c(7:9)
   entries2 = c(10:12)
   entries = c(entries1,entries2)
-  
+
   Sigma = solve(XWX,Middle)%*%solve(XWX)
 
   output = (fit.people$coefficients[entries]%*%solve(Sigma[entries,entries], fit.people$coefficients[entries]))
@@ -326,17 +326,17 @@ estimation.simulation <- function(num.persons, N, pi, tau, P.0, daily.treat, T, 
 
     output = estimation(people)
 
-    alpha.0 = 0.05; p = 6; q = 6; 
-    
+    alpha.0 = 0.05; p = 6; q = 6;
+
     multiple = p*(num.persons-q-1)/(num.persons-p-1)
-    
+
   return (output>multiple*qf((1-alpha.0), df1 = p, df2 = num.persons - p-q))
 }
 
 
 #### SS-Calculation functions
 tilde.p <- function(X.t) {
-  N[X.t]/((T-60*2)*pi[X.t]*tau[X.t])
+  N[X.t]/((T-60*N[X.t])*pi[X.t]*tau[X.t])
 }
 
 gamma.st <- function(s,t) {
@@ -346,39 +346,44 @@ gamma.st <- function(s,t) {
 
 ss.daily.data <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p, treatment.data){
   # Generate the daily data for a participant given all the inputs!
-  
+
   inside.fn <- function(day) {
     effect = rep(daily.treat[day],2)
     P.treat = calc.Ptreat(P.0,effect,treatment.data, tol=10^(-2))
+    bar.sigma = bar.sigmasq.fn(P,pi,P.treat,window.length)
     H.t = daily.sim(N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p)
-    Y.t = SMA(H.t$X==1,window.length); Y.t = Y.t[(window.length+1):(length(Y.t))]
     prob.gamma = rollapply(1-H.t$rho, window.length, FUN = prod); prob.gamma = prob.gamma[-1]
     prob.nu = rollapply((H.t$A==0),window.length, FUN = prod); prob.nu = prob.nu[-1]
     psi.t = prob.nu/prob.gamma
     data = cbind(day,1:(T+window.length),H.t$A,H.t$X, H.t$rho,H.t$I, c(psi.t,rep(0,window.length)))
-    Q = W.first_term = W.second_term = 0
+    Q = W.first = W.second = 0
     obs.times = data[data[,6]==1 & data[,7] > 0,2]
     for(i in 1:(length(obs.times))) {
-      ob.t = obs.times[i] ; f_at_obt = f.t(ob.t+ T*day, H.t$X[ob.t]) 
+      ob.t = obs.times[i] ; f_at_obt = f.t(ob.t+ T*day, H.t$X[ob.t])
       p.t = tilde.p(H.t$X[ob.t])
       add.weight.t = (p.t/H.t$rho[ob.t])^(H.t$A[ob.t]) * ((1-p.t)/(1-H.t$rho[ob.t]))^(1-H.t$A[ob.t])
-      Q = Q + (H.t$A[ob.t]-p.t)^2*add.weight.t*psi.t[ob.t]*outer(f_at_obt,f_at_obt)
-      W.first_term = W.first_term + (H.t$A[ob.t]-p.t)^2*add.weight.t^2*psi.t[ob.t]^2*outer(f_at_obt,f_at_obt)
-      if(i < length(obs.times)) {
-        for(j in (i+1):length(obs.times)) {
-          min.time = min(obs.times[c(i,j)]); max.time = max(obs.times[c(i,j)])
-          if(abs(obs.times[i]-obs.times[j]) < window.length) {
-            p.min = tilde.p(H.t$X[min.time]); p.max = tilde.p(H.t$X[max.time])
-            add.weight.max = (p.max/H.t$rho[max.time])^(H.t$A[max.time]) * ((1-p.max)/(1-H.t$rho[max.time]))^(1-H.t$A[max.time])
-            add.weight.min = (p.min/H.t$rho[min.time])^(H.t$A[min.time]) * ((1-p.min)/(1-H.t$rho[min.time]))^(1-H.t$A[min.time])            
-            coefficient = psi.t[max.time]*psi.t[min.time]*add.weight.max*add.weight.min*(H.t$A[max.time]-p.max)*(H.t$A[min.time]-p.min)
-            f.t_f.s = outer(f.t(min.time+ T*day, H.t$X[min.time]),f.t(max.time+ T*day, H.t$X[max.time]))
-            W.second_term = W.second_term + coefficient * (f.t_f.s+t(f.t_f.s))
+      sigmasq.ob.t = H.t$A[ob.t]*sigmasq.fn(P.treat,H.t$X[ob.t],window.length)+(1-H.t$A[ob.t])*sigmasq.fn(P,H.t$X[ob.t],window.length)
+      Q = Q +
+          psi.t[ob.t] * add.weight.t * (H.t$A[ob.t]-p.t)^2*outer(f_at_obt,f_at_obt)
+      W.first = W.first +
+          psi.t[ob.t]^2 * add.weight.t^2 * (H.t$A[ob.t]-p.t)^2*sigmasq.ob.t*outer(f_at_obt,f_at_obt)          
+      diff = obs.times[-i]-ob.t
+      other.times = obs.times[-i]
+      close.times = other.times[abs(diff)<window.length]
+      if(length(close.times) > 0) {
+          for (j in 1:length(close.times)) {
+              ob.s = close.times[j]; f_at_obs = f.t(ob.s+T*day,H.t$X[ob.s])
+              p.s = tilde.p(H.t$X[ob.s])
+              add.weight.s = (p.s/H.t$rho[ob.s])^(H.t$A[ob.s]) * ((1-p.s)/(1-H.t$rho[ob.s]))^(1-H.t$A[ob.s])
+              W.second = W.second + bar.sigma *
+                  (1-abs(ob.s-ob.t)/window.length)*
+                  psi.t[ob.t] * add.weight.t * (H.t$A[ob.t]-p.t) *
+                  psi.t[ob.s] * add.weight.s * (H.t$A[ob.s]-p.s) *
+                  outer(f_at_obt,f_at_obs)
           }
-        }
       }
-    }    
-    return(list("Q.day" = Q, "W.day" = W.first_term+W.second_term))
+    }
+    return(list("Q.day" = Q, "W.day" = W.first+W.second))
   }
   return(inside.fn)
 }
@@ -390,7 +395,7 @@ full.trial.ss.sim <- function(N, pi, tau, P.0, daily.treat, T, window.length, mi
     day.res = ss.daily.data(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data)(i)
     W = W + day.res$W.day
     Q = Q + day.res$Q.day
-  } 
+  }
   return(rbind(Q,W))
 }
 
@@ -398,4 +403,29 @@ ss.parameters <- function(num.iters, N, pi, tau, P.0, daily.treat, T, window.len
   treatment.data = potential.effects(P)
   output = foreach(i=1:num.iters,.combine = "+", .packages = c("foreach", "TTR","expm","zoo")) %dopar% full.trial.ss.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data)/num.iters
   return(output)
+}
+
+sigmasq.fn <- function(P,current.state,window.length) {
+    var.total = 0
+    for (s in 1:window.length) {
+        for (s.prime in 1:window.length) {
+            delta = max(s,s.prime) - min(s,s.prime)
+            var.total = var.total + (P%^%min(s,s.prime))[current.state,2] *
+                (P%^%delta)[2,2] -
+                (P%^%s)[current.state,2]*(P%^%s.prime)[current.state,2]
+        }
+    }
+    return(var.total/window.length^2)
+}
+
+
+bar.sigmasq.fn <- function(P,pi, P.treat,window.length) {
+    ## Estimate bar(sigma)^2
+    eig.P.treat = eigen(P.treat)
+
+    pi.treat = (eig.P.treat$vectors%*%diag(c(1,0))%*%solve(eig.P.treat$vectors))[1,]  # Stationary dist
+    return(
+    3/10*(pi.treat[1]*sigmasq.fn(P.treat,1,window.length) + pi.treat[2]*sigmasq.fn(P.treat,2,window.length)) +
+    7/10*(pi[1]*sigmasq.fn(P,1,window.length) + pi[2]*sigmasq.fn(P,2,window.length))
+    )
 }
