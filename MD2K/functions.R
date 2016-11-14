@@ -175,9 +175,8 @@ full.trial.sim <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p
   foreach(i=1:length(daily.treat), .combine = "rbind", .packages = c("foreach", "TTR","expm","zoo")) %dopar% daily.data(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data)(i)
 }
 
-MRT.sim <- function(num.people, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p) {
+MRT.sim <- function(num.people, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p, treatment.data) {
   # Do the trial across people!!
-  treatment.data = potential.effects(P.0, window.length)
   output = foreach(i=1:num.people, .combine = "rbind", .packages = c("foreach", "TTR","expm","zoo")) %dopar% cbind(i,full.trial.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data))
   colnames(output) = c("person", "day", "t", "Y.t","A.t","X,t", "rho.t", "I.t","psi.t")
   return(output)
@@ -311,7 +310,7 @@ estimation <- function(people) {
   return(output)
 }
 
-estimation.simulation <- function(num.persons, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p) {
+estimation.simulation <- function(num.persons, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p, treatment.data) {
 
     people = MRT.sim(num.persons, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p)
 

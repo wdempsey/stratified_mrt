@@ -53,7 +53,7 @@ for(i in 1:length(bar.beta.set)) {
     for(peeps in poss.persons) {
 
         initial.study = foreach(k=1:num.iters, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dopar%
-            estimation.simulation(peeps, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p)
+            estimation.simulation(peeps, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p, treatment.data)
 
         current.result = c(bar.beta.set[i], tau.set[j],est_bar.d,peeps,mean(initial.study))
 
