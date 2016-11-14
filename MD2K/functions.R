@@ -177,7 +177,7 @@ full.trial.sim <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p
 
 MRT.sim <- function(num.people, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p) {
   # Do the trial across people!!
-  treatment.data = potential.effects(P, window.length)
+  treatment.data = potential.effects(P.0, window.length)
   output = foreach(i=1:num.people, .combine = "rbind", .packages = c("foreach", "TTR","expm","zoo")) %dopar% cbind(i,full.trial.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data))
   colnames(output) = c("person", "day", "t", "Y.t","A.t","X,t", "rho.t", "I.t","psi.t")
   return(output)
@@ -354,13 +354,13 @@ ss.daily.data <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p,
     data = cbind(day,1:(T+window.length),H.t$A,H.t$X, H.t$rho,H.t$I, c(psi.t,rep(0,window.length)))
     Q = W = 0
     obs.times = data[data[,6]==1 & data[,7] > 0,2]
-    epsilon.ob.t = Y.t[obs.times] - E.Y[H.t$X[obs.times]]
     for(i in 1:(length(obs.times))) {
       ob.t = obs.times[i] ; f_at_obt = f.t(ob.t+ T*day, H.t$X[ob.t])
       p.t = tilde.p(H.t$X[ob.t])
       add.weight.t = (p.t/H.t$rho[ob.t])^(H.t$A[ob.t]) * ((1-p.t)/(1-H.t$rho[ob.t]))^(1-H.t$A[ob.t])
       P.ob.t = P*(1-H.t$A[ob.t]) + P.treat*H.t$A[ob.t]
       E.Y = mean.Y(P.ob.t, window.length)
+      epsilon.ob.t = Y.t[ob.t] - E.Y[H.t$X[ob.t]]
       Q = Q +
           psi.t[ob.t] * add.weight.t * (H.t$A[ob.t]-p.t)^2*outer(f_at_obt,f_at_obt)
       W = W +
