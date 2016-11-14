@@ -13,7 +13,7 @@ registerDoParallel(cl)
 source('./setup.R'); source("./functions.R")
 
 tau.set = c(0.05,0.1,0.2)
-bar.beta.set = c(0.005,0.01,0.015,0.02)
+bar.beta.set = c(0.0075,0.01,0.015,0.02)
 # ss = matrix(c(216,188,180,58,53,50,33,29,27,23,22,21), nrow = 4, byrow = TRUE)
 
 treatment.data = potential.effects(P)
@@ -28,21 +28,9 @@ for(i in 1:length(bar.beta.set)) {
     Z.t = Vectorize(cov.gen)((1:num.days) * T)
     d = find.d(bar.beta.set[i],init.d,max.d,Z.t,num.days)
     daily.treat = -t(Z.t)%*%d
-    barsigma.day = daily.treat*0
 
-    for(day in 1:length(daily.treat)) {
-        effect = rep(daily.treat[day],2)
-        P.treat = calc.Ptreat(P,effect,treatment.data,
-                              tol=10^(-2))
-        barsigma.day[day] = sqrt(bar.sigmasq.fn(P,pi,
-                                           P.treat,
-                                           window.length))
-    }
-
-    est_bar.d = mean(daily.treat/mean(barsigma.day))
-
-    # Calculate the Sample Size --> Still and issue that the ss is highly variable
-    num.iters.ss = 10
+    # Calculate Sample Size
+    num.iters.ss = 1000
     Sigma.params = ss.parameters(num.iters.ss, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p)
     Q = Sigma.params[1:6,]; W = Sigma.params[7:12,]
 
