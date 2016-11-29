@@ -70,9 +70,9 @@ potential.effects <- function(P,window.length) {
 
 calc.Ptreat <- function(P, effect, treatment.data, tol) {
 
-#    if (all(effect == 0) == TRUE) {
-#        return(P)
-#    } else {
+   if (all(effect == 0) == TRUE) {
+       return(P)
+   } else {
 
         obs1 = which(treatment.data$treat.X1 > effect[1] - tol & treatment.data$treat.X1 < effect[1] + tol)
         obs2 = which(treatment.data$treat.X2 > effect[2] - tol & treatment.data$treat.X2 < effect[2] + tol)
@@ -105,7 +105,7 @@ calc.Ptreat <- function(P, effect, treatment.data, tol) {
 
 
         return(P.treat)
-    #}
+    }
 }
 
 daily.sim <- function(N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p) {
@@ -148,9 +148,6 @@ daily.sim <- function(N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p) 
   }
   return(H.t)
 }
-
-daily.sim_c <- compiler::cmpfun(daily.sim)
-
 
 daily.data <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p, treatment.data){
   # Generate the daily data for a participant given all the inputs!

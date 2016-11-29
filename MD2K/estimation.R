@@ -14,7 +14,7 @@ source('./setup.R'); source("./functions.R")
 
 #tau.set = c(0.05,0.1,0.2)
 tau.set = c(0.1)
-bar.beta.set = c(0.0075)
+bar.beta.set = c(0.001)
 #bar.beta.set = c(0.0075,0.01,0.0125)
 # ss = matrix(c(216,188,180,58,53,50,33,29,27,23,22,21), nrow = 4, byrow = TRUE)
 
