@@ -12,11 +12,10 @@ registerDoParallel(cl)
 
 source('./setup.R'); source("./functions.R")
 
-#tau.set = c(0.05,0.1,0.2)
-tau.set = c(0.1)
-bar.beta.set = c(0.001)
-#bar.beta.set = c(0.0075,0.01,0.0125)
-# ss = matrix(c(216,188,180,58,53,50,33,29,27,23,22,21), nrow = 4, byrow = TRUE)
+tau.set = c(0.05,0.1,0.2)
+bar.beta.set = c(0.0075,0.01,0.0125)
+
+ss = power = matrix(0, nrow = length(bar.beta.set), ncol = length(tau.set))
 
 treatment.data = potential.effects(P, window.length)
 
@@ -32,7 +31,7 @@ for(i in 1:length(bar.beta.set)) {
     daily.treat = -t(Z.t)%*%d
     
     # Calculate Sample Size
-    num.iters.ss = 1000
+    num.iters.ss = 500
     Sigma.params = ss.parameters(num.iters.ss, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p)
     Q = Sigma.params[1:6,]; W = Sigma.params[7:12,]
     
@@ -44,26 +43,17 @@ for(i in 1:length(bar.beta.set)) {
     
     samp.size.const = beta%*%solve(Sigma, beta)
     
-    num.persons = sample.size(samp.size.const,p = 6,q = 6)
+    initial.N = sample.size(samp.size.const,p = 6,q = 6)
     
-    poss.persons = num.persons+seq(-5,5,1)
-
-    num.iters = 1
-
-    for(peeps in poss.persons) {
-
-        initial.study = foreach(k=1:num.iters, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dopar%
-            estimation.simulation(peeps, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p, treatment.data)
-
-        current.result = c(bar.beta.set[i], tau.set[j],est_bar.d,peeps,mean(initial.study))
-
-        print(current.result)
-        result = c(result,current.result)
-    }
+    final.output = binary.search(initial.N, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p, treatment.data)
+      
+    ss[i,j] = final.output[1]
+    power[i,j] = final.output[2]
   }
 }
 
-save(result,file="result.RData")
+save(ss,file="ss.RData")
+save(power,file="power.RData")
 
 stopCluster(cl)
 
