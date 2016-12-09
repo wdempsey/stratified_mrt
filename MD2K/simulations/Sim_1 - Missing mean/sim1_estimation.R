@@ -18,7 +18,11 @@ bar.beta.set = c(0.0075,0.01,0.0125)
 ss = matrix(c(84, 68, 62,
               52, 43, 41,
               36, 32, 31), nrow = 3, byrow = TRUE)
+
 power = ss * 0
+
+treatment.data = potential.effects(P, window.length)
+treatment.data.weekend = potential.effects(P.weekend, window.length)
 
 for(i in 1:length(bar.beta.set)) {
     for(j in 1:length(tau.set)) {
@@ -35,7 +39,8 @@ for(i in 1:length(bar.beta.set)) {
         initial.study = foreach(k=1:num.iters,
             .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dopar%
             estimation.simulation(num.persons, N, pi, tau, P, P.weekend,
-                                  daily.treat, T, window.length, min.p, max.p)
+                                  daily.treat, T, window.length, min.p, max.p,
+                                  treatment.data, treatment.data.weekend)
 
         current.result = c(bar.beta.set[i], tau.set[j],ss[i,j], mean(initial.study))
 
