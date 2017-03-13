@@ -10,13 +10,18 @@ cl <- makeCluster(c(as.character(hostlist$V1)), type='SOCK')
 
 registerDoParallel(cl)
 
-source("./sim3_setup.R"); source("./sim3_functions.R")
+source("./sim2_setup.R"); source("./sim2_functions.R")
 
 tau.set = c(0.05,0.1,0.2)
-bar.beta.set = c(0.005,0.01,0.015,0.02)
-# ss = matrix(c(216,188,180,58,53,50,33,29,27,23,22,21), nrow = 4, byrow = TRUE)
+bar.beta.set = c(0.0075,0.01,0.0125)
 
-result1 = result2 = result3 = rep(0,0)
+ss = matrix(c(84, 68, 62,
+              52, 43, 41,
+              36, 32, 31), nrow = 3, byrow = TRUE)
+
+result1 = result2 = result3 = 0 * ss
+
+treatment.data = potential.effects(P, window.length)
 
 for(i in 1:length(bar.beta.set)) {
     for(j in 1:length(tau.set)) {
@@ -43,33 +48,33 @@ for(i in 1:length(bar.beta.set)) {
         study1 = foreach(k=1:num.iters,
             .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dopar%
             estimation.simulation(num.persons, N, pi, tau1.daily, P, daily.treat,
-                                  T, window.length, min.p, max.p)
+                                  T, window.length, min.p, max.p, treatment.data)
 
         current.result1 = c(bar.beta.set[i], tau.set[j],mean(study1))
 
         print(current.result1)
-        result1 = c(result1,current.result1)
+        result1[i,j] = current.result1
 
 
         study2 = foreach(k=1:num.iters,
             .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dopar%
             estimation.simulation(num.persons, N, pi, tau2.daily, P, daily.treat,
-                                  T, window.length, min.p, max.p)
+                                  T, window.length, min.p, max.p, treatment.data)
 
         current.result2 = c(bar.beta.set[i], tau.set[j],mean(study2))
 
         print(current.result2)
-        result2 = c(result2,current.result2)
+        result2[i,j] = current.result2
 
         study3 = foreach(k=1:num.iters,
             .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dopar%
             estimation.simulation(num.persons, N, pi, tau3.daily, P, daily.treat,
-                                  T, window.length, min.p, max.p)
+                                  T, window.length, min.p, max.p, treatment.data)
 
         current.result3 = c(bar.beta.set[i], tau.set[j],mean(study3))
 
         print(current.result3)
-        result3 = c(result3,current.result3)
+        result3[i,j] = current.result3
     }
   }
 }

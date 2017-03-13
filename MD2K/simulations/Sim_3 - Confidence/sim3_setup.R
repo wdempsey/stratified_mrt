@@ -1,6 +1,6 @@
 # Study assumptions
 
-## num.persons = 17 # Number of persons in the study
+num.persons = 17 # Number of persons in the study
 
 T = 600 # Number of timepoints per day
 
@@ -17,7 +17,7 @@ eig.P = eigen(P)
 
 pi = (eig.P$vectors%*%diag(c(1,0))%*%solve(eig.P$vectors))[1,]  # Stationary distribution for P
 
-##tau = rep(0.1,2) # Expected availability in each group ("Stressed", "Not Stressed")
+# tau = rep(0.1,2) # Expected availability in each group ("Stressed", "Not Stressed")
 
 # Randomization probability inputs
 N =  c(1.5,1.5) # Avg. number of actions per day in each group ("Stressed", "Not Stressed")
@@ -30,12 +30,12 @@ max.p = 0.999 # Maximum randomization probability at each time point
 # Treatment assumptions
 init.d = 0 # Initial treatment effect
 max.d = num.days/2 # Day of maximum treatment effect
-##bar.d = 0.01 # Avg treatment effect
+# bar.d = 0.01 # Avg treatment effect
 
 #### Construct daily treatment vector
-##source("./sim3_functions.R")
-##Z.t = Vectorize(cov.gen)((1:num.days) * T)
-##d = find.d(bar.d,init.d,max.d, Z.t,num.days)
-##daily.treat = -t(Z.t)%*%d
-
-
+# source("./sim4_functions.R")
+# Z.t = Vectorize(cov.gen)((1:num.days) * T)
+# d = find.d(bar.d,init.d,max.d, Z.t,num.days)
+# daily.treat = -t(Z.t)%*%d
+# 
+# 
