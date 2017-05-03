@@ -2,7 +2,7 @@
 require(foreach); require(TTR); require(zoo); require(expm)
 
 ### Simulation functions
-rand.probs <- function(X.t, H.t, T, N, pi, tau, lambda, min.p, max.p) {
+rand.probs <- function(X.t, H.t, T, N, pi, lambda, min.p, max.p) {
   ## Calculate randomization probabilities given pi, x.t, lambda,
   ## T, and N
   power = length(H.t$X):1
@@ -10,103 +10,43 @@ rand.probs <- function(X.t, H.t, T, N, pi, tau, lambda, min.p, max.p) {
   	if(remaining.time < 0) {
   		true.rem.time = 0
   	} else if(remaining.time - N[X.t]*60 < 60) {
-  	  true.rem.time = remaining.time*pi[X.t]*tau[X.t]
+  	  true.rem.time = remaining.time*pi[X.t]
   	} else if(remaining.time - N[X.t]*60 < 120) {
-  		true.rem.time = (remaining.time-60)*pi[X.t]*tau[X.t]
+  		true.rem.time = (remaining.time-60)*pi[X.t]
 	  } else {
-		  true.rem.time = (remaining.time - 120)*pi[X.t]*tau[X.t]
+		  true.rem.time = (remaining.time - 120)*pi[X.t]
 	  }
-#   rho.t = max(min((N[X.t] - sum(((1-lambda^power)*H.t$rho + lambda^power*H.t$A)*(H.t$X == X.t & H.t$I == 1)))/ (1 + (T-(max(power)+1))*pi[X.t]*tau[X.t]),max.p),min.p)
 	rho.t = max(min((N[X.t] - sum(((1-lambda^power)*H.t$rho + lambda^power*H.t$A)*(H.t$X == X.t & H.t$I == 1)))/ (1 + true.rem.time),max.p),min.p)
   return(rho.t)
 }
 
-potential.effects <- function(P,window.length) {
-  max.delta = 1-diag(P)
-  min.delta = -diag(P)
-
-  delta.1.range = seq(min.delta[1],max.delta[1],0.005)
-  delta.2.range = seq(min.delta[2],max.delta[2],0.005)
-
-  direct.treat.X1 = direct.treat.X2 = matrix(nrow = length(delta.1.range), ncol = length(delta.2.range))
-
-  for (i in 1:length(delta.1.range)) {
-      for(j in 1:length(delta.2.range)) {
-
-          delta.1 = delta.1.range[i]; delta.2 = delta.2.range[j]
-
-          P.treat = P + matrix(c(delta.1,-delta.1,-delta.2,delta.2), nrow = 2, ncol = 2, byrow = TRUE)
-
-          direct.result = list()
-          direct.result$A1 = direct.result$A0 = 0
-
-          for (k in 1:window.length) {
-              direct.result$A0 = direct.result$A0 + (P%^%k)[,2]
-              direct.result$A1 = direct.result$A1 + (P.treat%^%k)[,2]
-          }
-
-          temp = (direct.result$A1 -
-                  direct.result$A0)/window.length
-
-          direct.treat.X1[i,j] = temp[1]; direct.treat.X2[i,j] = temp[2]
-
-      }
-  }
-
-  data.frame.treat = matrix(nrow = length(delta.1.range)*length(delta.2.range), ncol = 4)
-
-  for (i in 1:length(delta.1.range)) {
-    for(j in 1:length(delta.2.range)) {
-      data.frame.treat[(i-1)*length(delta.2.range)+j,] = c(delta.1.range[i],delta.2.range[j],direct.treat.X1[i,j], direct.treat.X2[i,j])
-    }
-  }
-
-  data.frame.treat = data.frame(data.frame.treat)
-
-  names(data.frame.treat) = c("delta.1", "delta.2", "treat.X1", "treat.X2")
-
-  return(data.frame.treat)
+calculateP <- function(inputs) {
+    P.prime = matrix(0, nrow = 6, ncol = 6)
+    P.prime[1,1] = inputs[1]; P.prime[4,4] = inputs[4]
+    P.prime[2,3] = P.prime[5,6] = 1.0
+    P.prime[1,2] = 1-P.prime[1,1]; P.prime[4,5] = 1-P.prime[4,4]
+    P.prime[3,3] = inputs[2]; P.prime[6,6] = inputs[5]
+    P.prime[3,1] = (1-inputs[3]) * (1-P.prime[3,3]); P.prime[3,4] = inputs[3] * (1-P.prime[3,3])
+    P.prime[6,1] = (1-inputs[6]) * (1-P.prime[6,6]); P.prime[6,4] = inputs[6] * (1-P.prime[6,6])
+    return(P.prime)
 }
 
-calc.Ptreat <- function(P, effect, treatment.data, tol) {
-
-   if (all(effect == 0) == TRUE) {
-       return(P)
-   } else {
-
-        obs1 = which(treatment.data$treat.X1 > effect[1] - tol & treatment.data$treat.X1 < effect[1] + tol)
-        obs2 = which(treatment.data$treat.X2 > effect[2] - tol & treatment.data$treat.X2 < effect[2] + tol)
-
-        if(length(obs1) == 0 | length(obs2) == 0) {stop("no observations of this effect combination with set tolerance level")}
-
-        fit.obs1 = lm(treatment.data$delta.2[obs1]~treatment.data$delta.1[obs1])
-        fit.obs2 = lm(treatment.data$delta.2[obs2]~treatment.data$delta.1[obs2])
-
-        delta.1.intersect = -(fit.obs1$coefficients[1] - fit.obs2$coefficients[1])/(fit.obs1$coefficients[2] - fit.obs2$coefficients[2])
-        delta.2.intersect = fit.obs1$coefficients[1] + fit.obs1$coefficients[2]*delta.1.intersect
-
-        P.treat = P + matrix(c(delta.1.intersect,-delta.1.intersect,-delta.2.intersect,delta.2.intersect), nrow = 2, ncol = 2, byrow = TRUE)
-
-        ## Quick check on treatment effect
-
-        direct.result = list()
-        direct.result$A1 = direct.result$A0 = 0
-
-        for (k in 1:60) {
-            direct.result$A0 = direct.result$A0 + (P%^%k)[,2]
-            direct.result$A1 = direct.result$A1 + (P.treat%^%k)[,2]
+effect.gap <- function(P, window.length, effect) {
+    f2 <- function(inputs) {
+        P.prime = calculateP(inputs)
+        total = 0.0
+        for (k in 1:window.length) {
+            total = total + (rowSums((P.prime%^%k)[c(2,5),4:6]) -
+                rowSums((P%^%k)[c(2,5),4:6]))
         }
-
-        temp = (direct.result$A1 - direct.result$A0)/60
-
-        if(!all(abs(temp - effect)< tol)){
-            stop("no observations of this effect combination with set tolerance level")
-        }
-
-
-        return(P.treat)
+        gap = sum((total - effect*window.length)^2)
+        return(gap)
     }
+    return(f2)
 }
+
+test = optim(init.inputs,effect.gap(P, window.length, effect))
+calculateP(test$par)
 
 daily.sim <- function(N, pi, P.0, P.treat, T, window.length, min.p, max.p) {
   ## Simulate the Markov chain given length (T), transition matrix (P),
@@ -115,25 +55,25 @@ daily.sim <- function(N, pi, P.0, P.treat, T, window.length, min.p, max.p) {
   X.t[1] = sample(1:length(pi), size = 1, prob=pi)
   I.t[1] = as.numeric(X.t[1] == 2 | X.t[1] == 5)
   if(I.t[1] == 1) {
-    rho.t[1] = max(min(N[X.t[1]]/((1 + (T - 120 - 1)*pi[X.t]*tau[X.t[1]])),max.p),min.p)
+    rho.t[1] = max(min(N[X.t[1]]/((1 + (T - 120 - 1)*pi[X.t])),max.p),min.p)
   } else{rho.t[1] = 0}
   A.t[1] = rbinom(n=1,size=1, prob = rho.t)
   H.t = list("X"=X.t[1],"A" = A.t[1], "I" = I.t[1], "rho" =rho.t[1])
   t = 2
   while (t <= T+window.length) {
     if(A.t[t-1] ==0) {
-      X.t[t] = sample(1:nrow(P.0), size = 1, prob = P.0[X.t[t-1],])
-      if(t > T) {
-        I.t[t] = 0; rho.t[t] = 0
-      } else{
-        I.t[t] = rbinom(n=1,size = 1, prob=tau[X.t[t]])
-        if( I.t[t] == 1) {
-          rho.t[t] = rand.probs(X.t[t], H.t, T, N, pi, tau, lambda, min.p, max.p)
-        } else ( rho.t[t] = 0 )
-      }
-      A.t[t] = rbinom(n=1,size=1, prob = rho.t[t])
-      H.t = list("X"=X.t[1:t],"A" = A.t[1:t], "I" = I.t[1:t], "rho" =rho.t[1:t])
-      t = t+1
+        X.t[t] = sample(1:nrow(P.0), size = 1, prob = P.0[X.t[t-1],])
+        if(t > T) {
+            I.t[t] = 0; rho.t[t] = 0
+        } else{
+            I.t[t] = as.numeric(X.t[t] == 2 | X.t[t] == 5)
+            if( I.t[t] == 1) {
+                rho.t[t] = rand.probs(X.t[t], H.t, T, N, pi, lambda, min.p, max.p)
+            } else ( rho.t[t] = 0 )
+        }
+        A.t[t] = rbinom(n=1,size=1, prob = rho.t[t])
+        H.t = list("X"=X.t[1:t],"A" = A.t[1:t], "I" = I.t[1:t], "rho" =rho.t[1:t])
+        t = t+1
     } else {
         I.t[t:(t+window.length-1)] = 0
         rho.t[t:(t+window.length-1)] = 0
