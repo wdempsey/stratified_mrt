@@ -108,12 +108,12 @@ calc.Ptreat <- function(P, effect, treatment.data, tol) {
     }
 }
 
-daily.sim <- function(N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p) {
+daily.sim <- function(N, pi, P.0, P.treat, T, window.length, min.p, max.p) {
   ## Simulate the Markov chain given length (T), transition matrix (P),
   ## and initial point (init)
   X.t = I.t = A.t = rho.t = vector(length = T)
   X.t[1] = sample(1:length(pi), size = 1, prob=pi)
-  I.t[1] = rbinom(n=1,size = 1, prob=tau[X.t])
+  I.t[1] = as.numeric(X.t[1] == 2 | X.t[1] == 5)
   if(I.t[1] == 1) {
     rho.t[1] = max(min(N[X.t[1]]/((1 + (T - 120 - 1)*pi[X.t]*tau[X.t[1]])),max.p),min.p)
   } else{rho.t[1] = 0}
@@ -318,7 +318,7 @@ estimation.simulation <- function(num.persons, N, pi, tau, P.0, daily.treat, T, 
 
 #### SS-Calculation functions
 tilde.p <- function(X.t) {
-  ## Constant fn of t, stratification across X.t 
+  ## Constant fn of t, stratification across X.t
   # N[X.t]/((T-60*N[X.t])*pi[X.t]*tau[X.t])
   ## Constant fn of t, and X.t
   N[1]/((T-60*N[1])*pi[1]*tau[1])*pi[1]+N[2]/((T-60*N[2])*pi[2]*tau[2])*pi[2]
@@ -356,7 +356,7 @@ ss.daily.data <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p,
       add.weight.t = (p.t/H.t$rho[ob.t])^(H.t$A[ob.t]) * ((1-p.t)/(1-H.t$rho[ob.t]))^(1-H.t$A[ob.t])
       P.ob.t = P*(1-H.t$A[ob.t]) + P.treat*H.t$A[ob.t]
       E.Y = mean.Y(P.ob.t, window.length)
-      epsilon.ob.t = Y.t[ob.t] - E.Y[H.t$X[ob.t]] 
+      epsilon.ob.t = Y.t[ob.t] - E.Y[H.t$X[ob.t]]
       hat.sigmasq[[H.t$X[ob.t]]] = c(hat.sigmasq[[H.t$X[ob.t]]], (psi.t[ob.t] * add.weight.t * Y.t[ob.t] - E.Y[H.t$X[ob.t]])^2)
       hat.tildepr[[H.t$X[ob.t]]] = c(hat.tildepr[[H.t$X[ob.t]]], H.t$rho[ob.t])
       Q = Q +
@@ -390,10 +390,10 @@ ss.parameters <- function(num.iters, N, pi, tau, P.0, daily.treat, T, window.len
   treatment.data = potential.effects(P, window.length)
   output = 0
   for (i in 1:num.iters) {
-    output = output + full.trial.ss.sim(N, pi, tau, 
-                                        P.0, daily.treat, T, 
+    output = output + full.trial.ss.sim(N, pi, tau,
+                                        P.0, daily.treat, T,
                                         window.length, min.p, max.p,
-                                        treatment.data)/num.iters 
+                                        treatment.data)/num.iters
   }
   return(output)
 }
@@ -449,23 +449,23 @@ power.calc <- function(num.persons, N, pi, tau, P, daily.treat, T, window.length
 }
 
 binary.search <- function(initial.N, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p, treatment.data) {
-  
+
   High.N.current = High.N.old = round(initial.N*1.15,0)
   Mid.N.current = Mid.N.old = initial.N
   Low.N.current = Low.N.old = round(initial.N*0.85,0)
-  
+
   which.run = rep(TRUE, 3); power.old = power.current = rep(0,3)
   total.evals = 0
-  
+
   binary.iters = 100
-  
+
   for(i in 1:binary.iters) {
     print(i)
     High.N.old = High.N.current
     Mid.N.old = Mid.N.current
     Low.N.old = Low.N.current
     power.old = power.current
-    
+
     if(which.run[1] == TRUE) {
       power.L.current = power.calc(Low.N.current, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p, treatment.data)
     }
@@ -475,29 +475,29 @@ binary.search <- function(initial.N, N, pi, tau, P, daily.treat, T, window.lengt
     if(which.run[3] == TRUE) {
       power.H.current = power.calc(High.N.current, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p, treatment.data)
     }
-    
+
     total.evals = total.evals + sum(which.run)
-    
+
     if(power.L.current > power.M.current) {
       temp = mean(c(power.L.current,power.M.current))
       power.L.current = power.M.current = temp
-    } 
-    
+    }
+
     if(power.M.current > power.H.current) {
       temp = mean(c(power.H.current,power.M.current))
       power.H.current = power.M.current = temp
-    } 
-    
+    }
+
     if(power.L.current > power.H.current) {
       temp = mean(c(power.H.current,power.M.current,power.L.current))
       power.H.current = power.M.current = power.L.current = temp
     }
-    
+
     if(power.L.current > 0.80) {
       Low.N.current = round(Low.N.current*0.8,0)
       Mid.N.current = round(Low.N.current*0.9,0)
       High.N.current = Low.N.current
-      which.run = c(TRUE, TRUE, FALSE)  
+      which.run = c(TRUE, TRUE, FALSE)
     } else if (power.H.current < 0.80) {
       High.N.current = round(High.N.current*1.2,0)
       Mid.N.current = round(High.N.current*1.1,0)
@@ -512,19 +512,19 @@ binary.search <- function(initial.N, N, pi, tau, P, daily.treat, T, window.lengt
       High.N.current = Mid.N.old
       which.run = c(TRUE, FALSE, TRUE)
     }
-    
+
     power.current = c(power.L.current,power.M.current,power.H.current)
     num.current = c(Low.N.current,Mid.N.current,High.N.current)
-    
+
     print(rbind(num.current,power.current))
     print(total.evals)
-    
+
     if(High.N.current - Mid.N.current <= 1 & Mid.N.current-Low.N.current <= 1) {
       best = min(which(power.current>0.80))
       return(c(num.current[best], power.current[best]))
     }
-    
-  } 
+
+  }
   best = min(which(power.current>0.80))
   return(c(num.current[best], power.current[best]))
 }
