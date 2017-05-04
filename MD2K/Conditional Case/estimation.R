@@ -22,9 +22,17 @@ for(i in 1:length(bar.beta.set)) {
     d = find.d(bar.beta.set[i],init.d,max.d,Z.t,num.days)
     daily.treat = -t(Z.t)%*%d
 
+    P.treat.list = list()
+
+    for(day in 1:num.days) {
+      effect = rep(daily.treat[day],2)
+      temp = optim(init.inputs,effect.gap(P, window.length, effect))
+      P.treat.list[[day]] = calculateP(temp$par)
+    }
+
     # Calculate Sample Size
-    num.iters.ss = 1000
-    Sigma.params = ss.parameters(num.iters.ss, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p)
+    num.iters.ss = 250
+    Sigma.params = ss.parameters(num.iters.ss, N, pi, P, P.treat.list, T, window.length, min.p, max.p)
     Q = Sigma.params[1:6,]; W = Sigma.params[7:12,]
 
     Sigma = solve(Q,W)%*%solve(Q)
@@ -50,24 +58,24 @@ for(i in 1:length(bar.beta.set)) {
     binary.iters = 100
 
     for(iter in 1:binary.iters) {
-      print(iter)
+      print(paste("Iteration number",iter))
       High.N.old = High.N.current
       Mid.N.old = Mid.N.current
       Low.N.old = Low.N.current
 
       if(which.run[1] == TRUE) {
         Low.study = foreach(k=1:1000, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dopar%
-          estimation.simulation(Low.N.old, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p, treatment.data)
+        estimation.simulation(Low.N.old, N, pi, P, P.treat.list, T, window.length, min.p, max.p)
         power.L.old = mean(Low.study)
       } else {power.L.old = power.L.current}
 
       Mid.study = foreach(k=1:1000, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dopar%
-        estimation.simulation(Mid.N.old, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p, treatment.data)
+        estimation.simulation(Mid.N.old, N, pi, P, P.treat.list, T, window.length, min.p, max.p)
       power.M.old = mean(Mid.study)
 
       if(which.run[3] == TRUE) {
         High.study = foreach(k=1:1000, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dopar%
-          estimation.simulation(High.N.old, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p, treatment.data)
+          estimation.simulation(High.N.old, N, pi, tau, P, P.treat.list, T, window.length, min.p, max.p)
         power.H.old = mean(High.study)
       } else {power.H.old = power.H.current}
 
