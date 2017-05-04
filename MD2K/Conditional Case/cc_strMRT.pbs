@@ -54,4 +54,4 @@ cd $PBS_O_WORKDIR
 ##module load R
 ##R CMD BATCH --vanilla estimation.R sim1.out
 
-mpirun -np 1 --mca mpi_warn_on_fork 0 R_flux CMD BATCH estimation.R simulation2.out
+mpirun -np 1 --mca mpi_warn_on_fork 0 R_flux CMD BATCH estimation.R cc_strMRT_sim.out
