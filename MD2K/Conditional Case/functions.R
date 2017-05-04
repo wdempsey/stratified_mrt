@@ -45,9 +45,6 @@ effect.gap <- function(P, window.length, effect) {
     return(f2)
 }
 
-test = optim(init.inputs,effect.gap(P, window.length, effect))
-calculateP(test$par)
-
 daily.sim <- function(N, pi, P.0, P.treat, T, window.length, min.p, max.p) {
   ## Simulate the Markov chain given length (T), transition matrix (P),
   ## and initial point (init)
@@ -89,32 +86,33 @@ daily.sim <- function(N, pi, P.0, P.treat, T, window.length, min.p, max.p) {
   return(H.t)
 }
 
-daily.data <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p, treatment.data){
+daily.data <- function(N, pi, P.0, daily.treat, T, window.length, min.p, max.p, treatment.data){
   # Generate the daily data for a participant given all the inputs!
 
   inside.fn <- function(day) {
-    effect = rep(daily.treat[day],2)
-    P.treat = calc.Ptreat(P.0,effect,treatment.data, tol=10^(-2))
-    H.t = daily.sim(N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p)
-    Y.t = SMA(H.t$X==2,window.length); Y.t = Y.t[(window.length+1):(length(Y.t))]
-    #Y.t = sim1_Y(H.t,day,d)[1:T]
-    prob.gamma = rollapply(1-H.t$rho, window.length, FUN = prod); prob.gamma = prob.gamma[-1]
-    prob.nu = rollapply((H.t$A==0),window.length, FUN = prod); prob.nu = prob.nu[-1]
-    psi.t = prob.nu/prob.gamma
-    data = cbind(day,1:T,Y.t,H.t$A[1:T],H.t$X[1:T], H.t$rho[1:T],H.t$I[1:T], psi.t)
-    return(data[data[,7] == 1 & data[,8] > 0,])
+      effect = rep(daily.treat[day],2)
+      temp = optim(init.inputs,effect.gap(P, window.length, effect))
+      P.treat = calculateP(temp$par)
+      H.t = daily.sim(N, pi, P.0, P.treat, T, window.length, min.p, max.p)
+      Y.t = SMA(H.t$X==2,window.length); Y.t = Y.t[(window.length+1):(length(Y.t))]
+      ##Y.t = sim1_Y(H.t,day,d)[1:T]
+      prob.gamma = rollapply(1-H.t$rho, window.length, FUN = prod); prob.gamma = prob.gamma[-1]
+      prob.nu = rollapply((H.t$A==0),window.length, FUN = prod); prob.nu = prob.nu[-1]
+      psi.t = prob.nu/prob.gamma
+      data = cbind(day,1:T,Y.t,H.t$A[1:T],H.t$X[1:T], H.t$rho[1:T],H.t$I[1:T], psi.t)
+      return(data[data[,7] == 1 & data[,8] > 0,])
   }
-  return(inside.fn)
+    return(inside.fn)
 }
 
-full.trial.sim <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data) {
+full.trial.sim <- function(N, pi, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data) {
   # Generate the full trial simulation using a vector of the daily treatment effects
-  foreach(i=1:length(daily.treat), .combine = "rbind", .packages = c("foreach", "TTR","expm","zoo")) %dopar% daily.data(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data)(i)
+  foreach(i=1:length(daily.treat), .combine = "rbind", .packages = c("foreach", "TTR","expm","zoo")) %dopar% daily.data(N, pi, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data)(i)
 }
 
-MRT.sim <- function(num.people, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p, treatment.data) {
+MRT.sim <- function(num.people, N, pi, P.0, daily.treat, T, window.length, min.p, max.p, treatment.data) {
   # Do the trial across people!!
-  output = foreach(i=1:num.people, .combine = "rbind", .packages = c("foreach", "TTR","expm","zoo")) %dopar% cbind(i,full.trial.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data))
+  output = foreach(i=1:num.people, .combine = "rbind", .packages = c("foreach", "TTR","expm","zoo")) %dopar% cbind(i,full.trial.sim(N, pi, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data))
   colnames(output) = c("person", "day", "t", "Y.t","A.t","X,t", "rho.t", "I.t","psi.t")
   return(output)
 }
@@ -243,9 +241,9 @@ estimation <- function(people) {
   return(output)
 }
 
-estimation.simulation <- function(num.persons, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p, treatment.data) {
+estimation.simulation <- function(num.persons, N, pi, P.0, daily.treat, T, window.length, min.p, max.p, treatment.data) {
 
-    people = MRT.sim(num.persons, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p, treatment.data)
+    people = MRT.sim(num.persons, N, pi, P.0, daily.treat, T, window.length, min.p, max.p, treatment.data)
 
     output = estimation(people)
 
@@ -258,29 +256,17 @@ estimation.simulation <- function(num.persons, N, pi, tau, P.0, daily.treat, T, 
 
 #### SS-Calculation functions
 tilde.p <- function(X.t) {
-  ## Constant fn of t, stratification across X.t
-  # N[X.t]/((T-60*N[X.t])*pi[X.t]*tau[X.t])
   ## Constant fn of t, and X.t
-  N[1]/((T-60*N[1])*pi[1]*tau[1])*pi[1]+N[2]/((T-60*N[2])*pi[2]*tau[2])*pi[2]
+  N[2]/((T-60*N[2])*pi[2])*pi[2]+N[5]/((T-60*N[5])*pi[5])*pi[5]
 }
 
-mean.Y <- function(P, window.length) {
-    direct.result = 0
-    for (k in 1:window.length) {
-        direct.result = direct.result + (P%^%k)[,2]
-    }
-
-    return(direct.result/window.length)
-
-}
-
-ss.daily.data <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p, treatment.data){
+ss.daily.data <- function(N, pi, P.0, daily.treat, T, window.length, min.p, max.p, treatment.data){
   # Generate the daily data for a participant given all the inputs!
 
   inside.fn <- function(day) {
     effect = rep(daily.treat[day],2)
     P.treat = calc.Ptreat(P.0,effect,treatment.data, tol=10^(-2))
-    H.t = daily.sim(N, pi, tau, P.0, P.treat, T, window.length, min.p, max.p)
+    H.t = daily.sim(N, pi, P.0, P.treat, T, window.length, min.p, max.p)
     Y.t = SMA(H.t$X==2,window.length); Y.t = Y.t[(window.length+1):(length(Y.t))]
     prob.gamma = rollapply(1-H.t$rho, window.length, FUN = prod); prob.gamma = prob.gamma[-1]
     prob.nu = rollapply((H.t$A==0),window.length, FUN = prod); prob.nu = prob.nu[-1]
@@ -314,23 +300,23 @@ ss.daily.data <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p,
   return(inside.fn)
 }
 
-full.trial.ss.sim <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data) {
+full.trial.ss.sim <- function(N, pi, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data) {
   # Generate the full trial simulation using a vector of the daily treatment effects
   W = Q = outer(f.t(1,1),f.t(1,1))*0
   hat.sigmasq = matrix(0,nrow = 2, ncol = 2)
   for(i in 1:length(daily.treat)) {
-    day.res = ss.daily.data(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data)(i)
+    day.res = ss.daily.data(N, pi, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data)(i)
     W = W + day.res$W.day
     Q = Q + day.res$Q.day
   }
   return(rbind(Q,W))
 }
 
-ss.parameters <- function(num.iters, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p) {
+ss.parameters <- function(num.iters, N, pi, P.0, daily.treat, T, window.length, min.p, max.p) {
   treatment.data = potential.effects(P, window.length)
   output = 0
   for (i in 1:num.iters) {
-    output = output + full.trial.ss.sim(N, pi, tau,
+    output = output + full.trial.ss.sim(N, pi,
                                         P.0, daily.treat, T,
                                         window.length, min.p, max.p,
                                         treatment.data)/num.iters
@@ -340,131 +326,34 @@ ss.parameters <- function(num.iters, N, pi, tau, P.0, daily.treat, T, window.len
 
 ####  Calculate bar.sigma
 
-full.trial.barsigma.sim <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data) {
+full.trial.barsigma.sim <- function(N, pi, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data) {
   # Generate the full trial simulation using a vector of the daily treatment effects
   hat.sigmasq = matrix(0,nrow = 2, ncol = 2)
   for(i in 1:length(daily.treat)) {
-    day.res = ss.daily.data(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data)(i)
+    day.res = ss.daily.data(N, pi, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data)(i)
     hat.sigmasq = hat.sigmasq + rbind(c(sum(day.res$hat.sigmasq[[1]]), length(day.res$hat.sigmasq[[1]])), c(sum(day.res$hat.sigmasq[[2]]), length(day.res$hat.sigmasq[[2]])))
   }
   return(hat.sigmasq)
 }
 
-barsigma.estimation <- function(num.iters, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p) {
-  output = foreach(i=1:num.iters,.combine = "+", .packages = c("foreach", "TTR","expm","zoo")) %dopar% full.trial.barsigma.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data)
+barsigma.estimation <- function(num.iters, N, pi, P.0, daily.treat, T, window.length, min.p, max.p) {
+  output = foreach(i=1:num.iters,.combine = "+", .packages = c("foreach", "TTR","expm","zoo")) %dopar% full.trial.barsigma.sim(N, pi, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data)
   return(output)
 }
 
-# test.sigma = barsigma.estimation(num.iters, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p)
-
-
 ####  Calculate tilde.pr (optimal)
 
-full.trial.tildepr.sim <- function(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data) {
+full.trial.tildepr.sim <- function(N, pi, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data) {
   # Generate the full trial simulation using a vector of the daily treatment effects
   hat.tildepr = matrix(0,nrow = 2, ncol = 2)
   for(i in 1:length(daily.treat)) {
-    day.res = ss.daily.data(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data)(i)
+    day.res = ss.daily.data(N, pi, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data)(i)
     hat.tildepr = hat.tildepr + rbind(c(sum(day.res$hat.tildepr[[1]]), length(day.res$hat.tildepr[[1]])), c(sum(day.res$hat.tildepr[[2]]), length(day.res$hat.tildepr[[2]])))
   }
   return(hat.tildepr)
 }
 
-tildepr.estimation <- function(num.iters, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p) {
-  output = foreach(i=1:num.iters,.combine = "+", .packages = c("foreach", "TTR","expm","zoo")) %dopar% full.trial.tildepr.sim(N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data)
+tildepr.estimation <- function(num.iters, N, pi, P.0, daily.treat, T, window.length, min.p, max.p) {
+  output = foreach(i=1:num.iters,.combine = "+", .packages = c("foreach", "TTR","expm","zoo")) %dopar% full.trial.tildepr.sim(N, pi, P.0, daily.treat, T, window.length, min.p, max.p,treatment.data)
   return(output)
-}
-
-# test.tildepr = tildepr.estimation(num.iters, N, pi, tau, P.0, daily.treat, T, window.length, min.p, max.p)
-
-## Sample Size simulation calculation
-
-# Given Power Calc function and initial num.persons
-# Compute the optimal number of people
-
-power.calc <- function(num.persons, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p, treatment.data) {
-  initial.study = foreach(k=1:1000, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dopar%
-    estimation.simulation(num.persons, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p, treatment.data)
-  return(mean(initial.study))
-}
-
-binary.search <- function(initial.N, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p, treatment.data) {
-
-  High.N.current = High.N.old = round(initial.N*1.15,0)
-  Mid.N.current = Mid.N.old = initial.N
-  Low.N.current = Low.N.old = round(initial.N*0.85,0)
-
-  which.run = rep(TRUE, 3); power.old = power.current = rep(0,3)
-  total.evals = 0
-
-  binary.iters = 100
-
-  for(i in 1:binary.iters) {
-    print(i)
-    High.N.old = High.N.current
-    Mid.N.old = Mid.N.current
-    Low.N.old = Low.N.current
-    power.old = power.current
-
-    if(which.run[1] == TRUE) {
-      power.L.current = power.calc(Low.N.current, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p, treatment.data)
-    }
-    if(which.run[2] == TRUE) {
-      power.M.current = power.calc(Mid.N.current, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p, treatment.data)
-    }
-    if(which.run[3] == TRUE) {
-      power.H.current = power.calc(High.N.current, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p, treatment.data)
-    }
-
-    total.evals = total.evals + sum(which.run)
-
-    if(power.L.current > power.M.current) {
-      temp = mean(c(power.L.current,power.M.current))
-      power.L.current = power.M.current = temp
-    }
-
-    if(power.M.current > power.H.current) {
-      temp = mean(c(power.H.current,power.M.current))
-      power.H.current = power.M.current = temp
-    }
-
-    if(power.L.current > power.H.current) {
-      temp = mean(c(power.H.current,power.M.current,power.L.current))
-      power.H.current = power.M.current = power.L.current = temp
-    }
-
-    if(power.L.current > 0.80) {
-      Low.N.current = round(Low.N.current*0.8,0)
-      Mid.N.current = round(Low.N.current*0.9,0)
-      High.N.current = Low.N.current
-      which.run = c(TRUE, TRUE, FALSE)
-    } else if (power.H.current < 0.80) {
-      High.N.current = round(High.N.current*1.2,0)
-      Mid.N.current = round(High.N.current*1.1,0)
-      Low.N.current = High.N.current
-      which.run = c(FALSE, TRUE, TRUE)
-    } else if (power.M.current < 0.80 ) {
-      Mid.N.current = round(mean(c(Mid.N.current,High.N.current)),0)
-      Low.N.current = Mid.N.old
-      which.run = c(TRUE, FALSE, TRUE)
-    } else {
-      Mid.N.current = round(mean(c(Mid.N.current,Low.N.current)),0)
-      High.N.current = Mid.N.old
-      which.run = c(TRUE, FALSE, TRUE)
-    }
-
-    power.current = c(power.L.current,power.M.current,power.H.current)
-    num.current = c(Low.N.current,Mid.N.current,High.N.current)
-
-    print(rbind(num.current,power.current))
-    print(total.evals)
-
-    if(High.N.current - Mid.N.current <= 1 & Mid.N.current-Low.N.current <= 1) {
-      best = min(which(power.current>0.80))
-      return(c(num.current[best], power.current[best]))
-    }
-
-  }
-  best = min(which(power.current>0.80))
-  return(c(num.current[best], power.current[best]))
 }
