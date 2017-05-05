@@ -40,7 +40,7 @@ for(i in 1:length(bar.beta.set)) {
     }
 
     # Calculate Sample Size
-    num.iters.ss = 1000
+    num.iters.ss = 500
     Sigma.params = ss.parameters(num.iters.ss, N, pi, P, P.treat.list, T, window.length, min.p, max.p)
     Q = Sigma.params[1:6,]; W = Sigma.params[7:12,]
 

@@ -92,7 +92,8 @@ daily.data <- function(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p)
   inside.fn <- function(day) {
       P.treat = P.treat.list[[day]]
       H.t = daily.sim(N, pi, P.0, P.treat, T, window.length, min.p, max.p)
-      Y.t = SMA(H.t$X==2,window.length); Y.t = Y.t[(window.length+1):(length(Y.t))]
+      Y.t = SMA(is.element(H.t$X,c(4,5,6)),window.length); Y.t = Y.t[(window.length+1):(length(Y.t))]
+      ##Y.t = SMA(H.t$X==2,window.length); Y.t = Y.t[(window.length+1):(length(Y.t))]
       ##Y.t = sim1_Y(H.t,day,d)[1:T]
       prob.gamma = rollapply(1-H.t$rho, window.length, FUN = prod); prob.gamma = prob.gamma[-1]
       prob.nu = rollapply((H.t$A==0),window.length, FUN = prod); prob.nu = prob.nu[-1]
@@ -264,7 +265,8 @@ ss.daily.data <- function(N, pi, P.0, P.treat.list, T, window.length, min.p, max
   inside.fn <- function(day) {
     P.treat = P.treat.list[[day]]
     H.t = daily.sim(N, pi, P.0, P.treat, T, window.length, min.p, max.p)
-    Y.t = SMA(H.t$X==2,window.length); Y.t = Y.t[(window.length+1):(length(Y.t))]
+    ##Y.t = SMA(H.t$X==2,window.length); Y.t = Y.t[(window.length+1):(length(Y.t))]
+    Y.t = SMA(is.element(H.t$X,c(4,5,6)),window.length); Y.t = Y.t[(window.length+1):(length(Y.t))]
     prob.gamma = rollapply(1-H.t$rho, window.length, FUN = prod); prob.gamma = prob.gamma[-1]
     prob.nu = rollapply((H.t$A==0),window.length, FUN = prod); prob.nu = prob.nu[-1]
     psi.t = prob.nu/prob.gamma
