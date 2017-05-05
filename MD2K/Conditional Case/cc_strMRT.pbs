@@ -12,25 +12,25 @@
 #PBS -l qos=flux
 
 ##This denotes the number of nodes and processors for the job.
-#PBS -l nodes=3:ppn=20 
-##For embarrassingly parallel computing, instead select 
+#PBS -l nodes=2:ppn=20
+##For embarrassingly parallel computing, instead select
 ##the number of processors, sometimes adding one to run the
 ##master R process
 ##PBS -l procs=20,pmem=4gb
 
-##This is the run time (hh:mm:ss) that your job will be allocated.  
+##This is the run time (hh:mm:ss) that your job will be allocated.
 ##It will be killed if it exceeds its walltime.
 ##Extreme over-estimation may slow your job in the queue.
 #PBS -l walltime=02:00:00:00
 
 ##Import the shell's environment
-##This is important if you're using Environment Modules 
+##This is important if you're using Environment Modules
 ##(i.e. module load ...)
 #PBS -V
 
-##In what circumstances should an email be sent regarding this job?  
+##In what circumstances should an email be sent regarding this job?
 ##'a' is for aborted jobs,
-##'b' is when the job starts, 
+##'b' is when the job starts,
 ##'e' is when the job exits.
 #PBS -m abe
 
@@ -54,4 +54,4 @@ cd $PBS_O_WORKDIR
 ##module load R
 ##R CMD BATCH --vanilla estimation.R sim1.out
 
-mpirun -np 1 --mca mpi_warn_on_fork 0 R_flux CMD BATCH estimation.R cc_strMRT_sim.out
+mpirun -np 1 --mca mpi_warn_on_fork 0 R_flux CMD BATCH estimation.R strMRT_sim.out
