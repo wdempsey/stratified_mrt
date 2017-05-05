@@ -17,6 +17,8 @@ print(ncpu)
 
 registerDoParallel(cl)
 
+library(doRNG)
+
 source('./setup.R'); source("./functions.R")
 
 bar.beta.set = c(0.0075,0.01,0.0125)
@@ -73,19 +75,22 @@ for(i in 1:length(bar.beta.set)) {
       Low.N.old = Low.N.current
 
       if(which.run[1] == TRUE) {
-        Low.study = foreach(k=1:1000, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dopar%
-        estimation.simulation(Low.N.old, N, pi, P, P.treat.list, T, window.length, min.p, max.p)
-        power.L.old = mean(Low.study)
+          set.seed("231310")
+          Low.study = foreach(k=1:1000, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dorng%
+          estimation.simulation(Low.N.old, N, pi, P, P.treat.list, T, window.length, min.p, max.p)
+          power.L.old = mean(Low.study)
       } else {power.L.old = power.L.current}
 
-      Mid.study = foreach(k=1:1000, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dopar%
+      set.seed("231310")
+      Mid.study = foreach(k=1:1000, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dorng%
         estimation.simulation(Mid.N.old, N, pi, P, P.treat.list, T, window.length, min.p, max.p)
       power.M.old = mean(Mid.study)
 
       if(which.run[3] == TRUE) {
-        High.study = foreach(k=1:1000, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dopar%
+          set.seed("231310")
+          High.study = foreach(k=1:1000, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dorng%
           estimation.simulation(High.N.old, N, pi, P, P.treat.list, T, window.length, min.p, max.p)
-        power.H.old = mean(High.study)
+          power.H.old = mean(High.study)
       } else {power.H.old = power.H.current}
 
       total.evals = total.evals + sum(which.run)
