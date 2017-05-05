@@ -21,7 +21,7 @@ library(doRNG)
 
 source('./setup.R'); source("./functions.R")
 
-bar.beta.set = c(0.0075,0.01,0.0125)
+bar.beta.set = c(0.02,0.03,0.04)
 
 ss = power = vector(length = length(bar.beta.set))
 max.value = 0.0
