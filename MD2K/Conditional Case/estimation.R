@@ -1,12 +1,19 @@
-require(doParallel)
+library(Rmpi)
+library(parallel)
+library(snow)
+library(doParallel)
 
 # reads the list of nodes which have been allocated
 # by the cluster queue manager
 nodefile <- Sys.getenv("PBS_NODEFILE")
 hostlist <- read.table(nodefile, skip=1, header=FALSE)
 
+ncpu <- mpi.universe.size() - 1
+
 # builds a socket cluster using these nodes
-cl <- makeCluster(c(as.character(hostlist$V1)), type='SOCK')
+cl <- makeCluster(ncpu, type='MPI')
+
+print(ncpu)
 
 registerDoParallel(cl)
 
@@ -15,6 +22,7 @@ source('./setup.R'); source("./functions.R")
 bar.beta.set = c(0.0075,0.01,0.0125)
 
 ss = power = vector(length = length(bar.beta.set))
+max.value = 0.0
 
 for(i in 1:length(bar.beta.set)) {
     ### Treatment vector
@@ -27,6 +35,7 @@ for(i in 1:length(bar.beta.set)) {
     for(day in 1:num.days) {
       effect = rep(daily.treat[day],2)
       temp = optim(init.inputs,effect.gap(P, window.length, effect))
+      max.value = max(max.value, temp$value)
       P.treat.list[[day]] = calculateP(temp$par)
     }
 
@@ -75,7 +84,7 @@ for(i in 1:length(bar.beta.set)) {
 
       if(which.run[3] == TRUE) {
         High.study = foreach(k=1:1000, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dopar%
-          estimation.simulation(High.N.old, N, pi, tau, P, P.treat.list, T, window.length, min.p, max.p)
+          estimation.simulation(High.N.old, N, pi, P, P.treat.list, T, window.length, min.p, max.p)
         power.H.old = mean(High.study)
       } else {power.H.old = power.H.current}
 
@@ -143,6 +152,8 @@ for(i in 1:length(bar.beta.set)) {
     power[i,j] = final.output[2]
   }
 }
+
+print(max.value)
 
 save(ss,file="ss.RData")
 save(power,file="power.RData")
