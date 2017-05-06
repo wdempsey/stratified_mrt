@@ -153,8 +153,8 @@ for(i in 1:length(bar.beta.set)) {
     best = min(which(power.old>0.80))
     final.output = c(num.old[best], power.fixed[best])
 
-    ss[i,j] = final.output[1]
-    power[i,j] = final.output[2]
+    ss[i] = final.output[1]
+    power[i] = final.output[2]
   }
 }
 
