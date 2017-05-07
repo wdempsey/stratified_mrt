@@ -12,22 +12,32 @@ window.length = 60 # Window length for the calculating proximal outcome
 bar.W = c(0.074, 0.53)
 bar.Z = c(10.3,11.8)
 
-tilde.Z = c((bar.Z[1]-3)/2, 0,(bar.Z[1]-3)/2,
-            (bar.Z[2]-3)/2, 0,(bar.Z[2]-3)/2)
+temp = c(1,-1)
 
-P  = matrix(0, nrow = 6, ncol = 6)
+epsilons = c(0.01,2)
 
-diag(P) = tilde.Z/(1+tilde.Z)
-P[2,3] = P[5,6] = 1.0
-P[1,2] = 1-P[1,1]; P[4,5] = 1-P[4,4]
-P[3,1] = (1-bar.W[1]) * (1-P[3,3]); P[3,4] = bar.W[1] * (1-P[3,3])
-P[6,1] = (1-bar.W[2]) * (1-P[6,6]); P[6,4] = bar.W[2] * (1-P[6,6])
+potential.errors = expand.grid(temp,temp,temp,temp)
 
-eig.P = eigen(P)
+P.list = list(); pi.list = list()
+temp.barW = bar.W
+temp.barZ = bar.Z
 
-pi = (eig.P$vectors%*%diag(c(1,rep(0,5)))%*%solve(eig.P$vectors))[1,]  # Stationary distribution for P
+for (i in 1:16) {
+    temp.barW[1] = bar.W[1] + epsilons[1]*potential.errors[i,1]
+    temp.barW[2] = bar.W[2] + epsilons[1]*potential.errors[i,2]
 
-# tau = rep(0.1,2) # Expected availability in each group ("Stressed", "Not Stressed")
+    temp.barZ[1] = bar.Z[1] + epsilons[2]*potential.errors[i,3]
+    temp.barZ[2] = bar.Z[2] + epsilons[2]*potential.errors[i,4]
+
+    P = alt.calculateP(temp.barW,temp.barZ)
+
+    P.list[[i]] = P
+
+    approx.pi = (P%^%1000)[1,]
+
+    pi.list[[i]] = approx.pi
+
+}
 
 # Randomization probability inputs
 N =  c(0,1.61,0,0,2.05,0) # Avg. number of actions per day in each group ("Stressed", "Not Stressed")
@@ -45,16 +55,3 @@ bar.d = 0.01 # Avg treatment effect
 ## Initial inputs for finding the closest P.treat to give you the
 ## correct treatment effect.
 init.inputs = c(P[1,1],P[3,3],P[3,4]/(1-P[3,3]), P[4,4], P[6,6], P[6,4]/(1-P[6,6]))
-
-## Test that the choice of N leads to right number of
-#set.seed("81740")
-#num.iters = 1000
-#res.nonstress = res.stress = vector(length = num.iters)
-#for (i in 1:num.iters) {
-#    test = daily.sim(N,pi,P,P,T,window.length,min.p,max.p)
-#    res.nonstress[i] = sum(test$A[test$X == 2])
-#    res.stress[i] = sum(test$A[test$X == 5])
-#}
-
-#mean(res.nonstress)
-#mean(res.stress)

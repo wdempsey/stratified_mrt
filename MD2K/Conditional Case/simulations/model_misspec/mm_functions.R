@@ -20,6 +20,21 @@ rand.probs <- function(X.t, H.t, T, N, pi, lambda, min.p, max.p) {
   return(rho.t)
 }
 
+alt.calculateP <- function(bar.W, bar.Z) {
+    tilde.Z = c((bar.Z[1]-3)/2, 0,(bar.Z[1]-3)/2,
+            (bar.Z[2]-3)/2, 0,(bar.Z[2]-3)/2)
+
+    P  = matrix(0, nrow = 6, ncol = 6)
+
+    diag(P) = tilde.Z/(1+tilde.Z)
+    P[2,3] = P[5,6] = 1.0
+    P[1,2] = 1-P[1,1]; P[4,5] = 1-P[4,4]
+    P[3,1] = (1-bar.W[1]) * (1-P[3,3]); P[3,4] = bar.W[1] * (1-P[3,3])
+    P[6,1] = (1-bar.W[2]) * (1-P[6,6]); P[6,4] = bar.W[2] * (1-P[6,6])
+
+    return(P)
+}
+
 calculateP <- function(inputs) {
   P.prime = matrix(0, nrow = 6, ncol = 6)
   P.prime[1,1] = inputs[1]; P.prime[4,4] = inputs[4]
@@ -88,7 +103,7 @@ daily.sim <- function(N, pi, P.0, P.treat, T, window.length, min.p, max.p) {
 
 daily.data <- function(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p){
   # Generate the daily data for a participant given all the inputs!
-  
+
   inside.fn <- function(day) {
     P.treat = P.treat.list[[day]]
     H.t = daily.sim(N, pi, P.0, P.treat, T, window.length, min.p, max.p)
@@ -134,37 +149,37 @@ find.d <- function(bar.d, init.d, max.d, Z.t, num.days) {
   # Find the quadratic terms given inputs
   D.star = num.days -1
   d = vector(length = 3)
-  
+
   d[1] = 0
   d[3] = D.star * bar.d * solve(D.star^2 * ( D.star^2/3 - max.d))
   d[2] = -2 * d[3] * max.d
-  
+
   ### Fix the scaling to get right average
   d = (ncol(Z.t) * bar.d / sum(d%*%Z.t)) * d
-  
+
   return(d)
 }
 
 sample.size <- function(ss.param,p,q,alpha.0 = 0.05,beta.0 = 0.8, max.iters = 10000) {
   ## Sample size calculation given the ss.param, p, and q
-  
+
   p.calc <- function(N) {
     c.N = N*ss.param
-    
+
     # inv.q  = (N-q-p)*(1-alpha.0)/ (p*(N-q-1))
     df1 = p
     df2 = N-q-p
-    
+
     inv.f = (N - q - 1) * qf(1-alpha.0,df1,df2) / (N - q - p)
-    
+
     return(pf(inv.f,df1,df2,ncp = c.N))
   }
-  
-  
+
+
   max.iters = 10000
   N = 100
   i = 1
-  
+
   while (i < max.iters ) {
     if ( p.calc(N) < 1- beta.0) {
       if (p.calc(N-1) > 1 - beta.0) {
@@ -175,7 +190,7 @@ sample.size <- function(ss.param,p,q,alpha.0 = 0.05,beta.0 = 0.8, max.iters = 10
     } else if (p.calc(N) == 1 - beta.0) {break}
     i = i+1
   }
-  
+
   return(N)
 }
 
@@ -199,57 +214,57 @@ M.function <- function(cov, data, log.weights, person, XWX, fit) {
 }
 
 estimation <- function(people) {
-  
+
   Y.t.person = people[,4]
   A.t.person = people[,5]
   X.t.person = people[,6]
   rho.t.person = people[,7]
   psi.t.person = people[,9]
-  
+
   B.t.person = t(Vectorize(cov.gen)((people[,2]-1)*T + people[,3]))
-  
+
   ## Set of possible weights depending on unique X.t
   set.rho = foreach(lvl=1:length(unique(X.t.person)), .combine = "c", .packages = c("foreach", "TTR","expm","zoo")) %dorng% mean(rho.t.person[X.t.person==lvl], na.rm = TRUE)
-  
+
   rho = unlist(lapply(X.t.person,tilde.p))
-  
+
   Z.t.person = B.t.person*matrix(rep(A.t.person-rho,3), ncol = 3)
-  
+
   cov.t.person = cbind(B.t.person,Z.t.person)
-  
+
   log.weights = A.t.person*(log(rho) - log(rho.t.person)) + (1-A.t.person)*(log(1-rho) - log(1-rho.t.person)) + log(psi.t.person)
-  
+
   fit.people = lm(Y.t.person~(B.t.person+Z.t.person):as.factor(X.t.person)-1,weights = exp(log.weights))
-  
+
   Covariates = model.matrix(fit.people)
-  
+
   num.persons = length(unique(people[,1]))
-  
+
   XWX = foreach(i=1:num.persons, .combine = "+", .packages = c("foreach", "TTR","expm","zoo")) %dorng% extract.tXWX(Covariates,people,log.weights,i)
-  
+
   Middle = foreach(person=1:num.persons, .combine = "+", .packages = c("foreach", "TTR","expm","zoo")) %dorng% M.function(Covariates, people, log.weights, person,XWX,fit.people)
-  
+
   entries1 = c(7:9)
   entries2 = c(10:12)
   entries = c(entries1,entries2)
-  
+
   Sigma = solve(XWX,Middle)%*%solve(XWX)
-  
+
   output = (fit.people$coefficients[entries]%*%solve(Sigma[entries,entries], fit.people$coefficients[entries]))
-  
+
   return(output)
 }
 
 estimation.simulation <- function(num.persons, N, pi, P.0, P.treat.list, T, window.length, min.p, max.p) {
-  
+
   people = MRT.sim(num.persons, N, pi, P.0, P.treat.list, T, window.length, min.p, max.p)
-  
+
   output = estimation(people)
-  
+
   alpha.0 = 0.05; p = 6; q = 6;
-  
+
   multiple = p*(num.persons-q-1)/(num.persons-p-q)
-  
+
   return (output>multiple*qf((1-alpha.0), df1 = p, df2 = num.persons - p - q))
 }
 
@@ -261,7 +276,7 @@ tilde.p <- function(X.t) {
 
 ss.daily.data <- function(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p){
   # Generate the daily data for a participant given all the inputs!
-  
+
   inside.fn <- function(day) {
     P.treat = P.treat.list[[day]]
     H.t = daily.sim(N, pi, P.0, P.treat, T, window.length, min.p, max.p)
