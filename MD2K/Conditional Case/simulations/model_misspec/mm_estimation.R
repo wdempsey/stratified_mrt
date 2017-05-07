@@ -54,6 +54,9 @@ for(i in 1:length(bar.beta.set)) {
             estimation.simulation(num.persons, N, pi, P, P.treat.list, T, window.length, min.p, max.p)
 
         power[i,j] = mean(All.studies)
+
+        print(c(bar.beta.set[i], j, mean(All.studies)))
+    }
 }
 
 print(max.value)

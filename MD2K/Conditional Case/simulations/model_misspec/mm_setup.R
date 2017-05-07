@@ -22,6 +22,8 @@ P.list = list(); pi.list = list()
 temp.barW = bar.W
 temp.barZ = bar.Z
 
+source("./mm_functions.R")
+
 for (i in 1:16) {
     temp.barW[1] = bar.W[1] + epsilons[1]*potential.errors[i,1]
     temp.barW[2] = bar.W[2] + epsilons[1]*potential.errors[i,2]
