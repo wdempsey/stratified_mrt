@@ -1,56 +1,75 @@
-require(doParallel)
+library(Rmpi)
+library(parallel)
+library(snow)
+library(doParallel)
 
 # reads the list of nodes which have been allocated
 # by the cluster queue manager
 nodefile <- Sys.getenv("PBS_NODEFILE")
 hostlist <- read.table(nodefile, skip=1, header=FALSE)
 
+ncpu <- mpi.universe.size() - 1
+
 # builds a socket cluster using these nodes
-cl <- makeCluster(c(as.character(hostlist$V1)), type='SOCK')
+cl <- makeCluster(ncpu, type='MPI')
+
+print(ncpu)
 
 registerDoParallel(cl)
 
-source('./sim1_setup.R'); source("./sim1_functions.R")
+library(doRNG)
 
-tau.set = c(0.05,0.1,0.2)
-bar.beta.set = c(0.0075,0.01,0.0125)
+source("./ti_setup.R")
+source("./ti_functions.R")
 
-ss = matrix(c(84, 68, 62,
-              52, 43, 41,
-              36, 32, 31), nrow = 3, byrow = TRUE)
+bar.beta.set = c(0.02,0.03,0.04)
+ss = c(118, 66, 41)
 
-power = ss * 0
-
-treatment.data = potential.effects(P, window.length)
-treatment.data.weekend = potential.effects(P.weekend, window.length)
+power = matrix(nrow = length(bar.beta.set), ncol = 16)
 
 for(i in 1:length(bar.beta.set)) {
-    for(j in 1:length(tau.set)) {
-        tau = rep(tau.set[j],length(N))
+    for (j in 1:2) {
+        ## Number of persons given bar.beta.set[i]
+        num.persons = ss[i]
+
+        ## Weekend transition matrix
+        P.wkend = Pwkend.list[[j]]
+        pi.wkend = piwkend.list[[j]]
 
         ## Treatment vector
         Z.t = Vectorize(cov.gen)((1:num.days) * T)
         d = find.d(bar.beta.set[i],init.d,max.d,Z.t,num.days)
         daily.treat = -t(Z.t)%*%d
 
-        num.persons = ss[i,j]
-        num.iters = 1000
+        P.treat.list = list()
+        init.values.wkend = init.inputs.wkend[[j]]
 
-        initial.study = foreach(k=1:num.iters,
-            .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dopar%
-            estimation.simulation(num.persons, N, pi, tau, P, P.weekend,
-                                  daily.treat, T, window.length, min.p, max.p,
-                                  treatment.data, treatment.data.weekend)
+        for(day in 1:num.days) {
+            effect = rep(daily.treat[day],2)
+            if((day == 6) | (day == 7)) {
+                temp = optim(init.inputs.wkday,
+                             effect.gap(P.wkend,
+                                        window.length, effect))
+                P.treat.list[[day]] = calculateP(temp$par)
+            } else {
+                temp = optim(init.values.wkend,
+                             effect.gap(P, window.length, effect))
+                P.treat.list[[day]] = calculateP(temp$par)
+            }
+        }
 
-        current.result = c(bar.beta.set[i], tau.set[j],ss[i,j], mean(initial.study))
+    set.seed("231310")
+    All.studies = foreach(k=1:1000, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dorng%
+        estimation.simulation(num.persons, N, pi, P, pi.wkend, P.wkend,
+                              P.treat.list, T, window.length, min.p, max.p)
 
-        print(current.result)
-        power[i,j] = mean(initial.study)
+    power[i,j] = mean(All.studies)
 
-    }
+    print(c(bar.beta.set[i], j, mean(All.studies)))
+  }
 }
 
-save(results,file="sim1_result.RData")
+save(power,file="power.RData")
 
 stopCluster(cl)
 
