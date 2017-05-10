@@ -12,7 +12,7 @@
 #PBS -l qos=flux
 
 ##This denotes the number of nodes and processors for the job.
-#PBS -l nodes=2:ppn=20
+#PBS -l nodes=3:ppn=20
 ##For embarrassingly parallel computing, instead select
 ##the number of processors, sometimes adding one to run the
 ##master R process
@@ -53,4 +53,4 @@ cd $PBS_O_WORKDIR
 
 ##module load R
 
-mpirun -np 1 --mca mpi_warn_on_fork 0 R_flux CMD BATCH mm_estimation.R mm_strMRT_sim.out
+mpirun -np 1 --mca mpi_warn_on_fork 0 R_flux CMD BATCH ti_estimation.R ti_strMRT_sim.out
