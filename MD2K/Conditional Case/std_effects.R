@@ -21,11 +21,11 @@ for(i in 1:length(bar.beta.set)) {
     }
 
     ## Calculate Sample Size
-    num.iters = 250
+    num.iters = 100
     test.sigma = barsigma.estimation(num.iters, N, pi, P, P.treat.list, T,
                                 window.length, min.p, max.p)
     ## test.tildepr = tildepr.estimation(num.iters, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p)
-    print(c(bar.beta.set[i], tau.set[j], round(bar.beta.set[i]/sqrt(test.sigma[,1]/test.sigma[,2]),2)))
+    print(c(bar.beta.set[i], round(bar.beta.set[i]/sqrt(test.sigma[,1]/test.sigma[,2]),4)))
     ## print(c(bar.beta.set[i], tau.set[j], test.tildepr[,1]/test.tildepr[,2]))
   }
 }

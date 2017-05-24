@@ -324,7 +324,7 @@ ss.parameters <- function(num.iters, N, pi, P.0, P.treat.list, T, window.length,
 ####  Calculate bar.sigma
 
 full.trial.barsigma.sim <- function(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p) {
-  # Generate the full trial simulation using a vector of the daily treatment effects
+  ## Generate the full trial simulation using a vector of the daily treatment effects
   hat.sigmasq = matrix(0,nrow = 2, ncol = 2)
   for(i in 1:length(P.treat.list)) {
     day.res = ss.daily.data(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p)(i)
