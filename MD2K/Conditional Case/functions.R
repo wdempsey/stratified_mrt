@@ -255,8 +255,9 @@ estimation.simulation <- function(num.persons, N, pi, P.0, P.treat.list, T, wind
 
 #### SS-Calculation functions
 tilde.p <- function(X.t) {
-  ## Constant fn of t, and X.t
-  N[2]/((T-60*N[2])*pi[2])*pi[2]+N[5]/((T-60*N[5])*pi[5])*pi[5]
+    ## Constant fn of t, and X.t
+    ##N[2]/((T-60*N[2])*pi[2])*pi[2]+N[5]/((T-60*N[5])*pi[5])*pi[5]
+    1.5/(T-60*1.5)*2
 }
 
 ss.daily.data <- function(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p){
