@@ -1,26 +1,31 @@
 source('./setup.R'); source("./functions.R")
+library(doRNG)
 
-tau.set = c(1.00)
-bar.beta.set = c(0.0075,0.01,0.0125)
+bar.beta.set = c(0.02,0.025,0.03)
 
-ss = power = matrix(0, nrow = length(bar.beta.set), ncol = length(tau.set))
-
-treatment.data = potential.effects(P, window.length)
+ss = power = vector(length = length(bar.beta.set))
 
 for(i in 1:length(bar.beta.set)) {
-  for(j in 1:length(tau.set)) {
-    tau = rep(tau.set[j],length(N))
-    
+
     ### Treatment vector
     Z.t = Vectorize(cov.gen)((1:num.days) * T)
     d = find.d(bar.beta.set[i],init.d,max.d,Z.t,num.days)
     daily.treat = -t(Z.t)%*%d
-    
-    # Calculate Sample Size
+
+    P.treat.list = list()
+
+    for(day in 1:num.days) {
+        effect = rep(daily.treat[day],2)
+        temp = optim(init.inputs,effect.gap(P, window.length, effect))
+        P.treat.list[[day]] = calculateP(temp$par)
+    }
+
+    ## Calculate Sample Size
     num.iters = 250
-    test.sigma = barsigma.estimation(num.iters, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p)
-    # test.tildepr = tildepr.estimation(num.iters, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p)
+    test.sigma = barsigma.estimation(num.iters, N, pi, P, P.treat.list, T,
+                                window.length, min.p, max.p)
+    ## test.tildepr = tildepr.estimation(num.iters, N, pi, tau, P, daily.treat, T, window.length, min.p, max.p)
     print(c(bar.beta.set[i], tau.set[j], round(bar.beta.set[i]/sqrt(test.sigma[,1]/test.sigma[,2]),2)))
-    # print(c(bar.beta.set[i], tau.set[j], test.tildepr[,1]/test.tildepr[,2]))
+    ## print(c(bar.beta.set[i], tau.set[j], test.tildepr[,1]/test.tildepr[,2]))
   }
 }
