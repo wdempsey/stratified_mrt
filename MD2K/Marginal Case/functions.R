@@ -208,9 +208,6 @@ estimation <- function(people) {
 
   B.t.person = t(Vectorize(cov.gen)((people[,2]-1)*T + people[,3]))
 
-  ## Set of possible weights depending on unique X.t
-  set.rho = foreach(lvl=1:length(unique(X.t.person)), .combine = "c", .packages = c("foreach", "TTR","expm","zoo")) %dorng% mean(rho.t.person[X.t.person==lvl], na.rm = TRUE)
-
   rho = unlist(lapply(X.t.person,tilde.p))
 
   Z.t.person = B.t.person*matrix(rep(A.t.person-rho,3), ncol = 3)
@@ -253,8 +250,9 @@ estimation.simulation <- function(num.persons, N, pi, P.0, P.treat.list, T, wind
 
 #### SS-Calculation functions
 tilde.p <- function(X.t) {
-  ## Constant fn of t, and X.t
-  N[2]/((T-60*N[2])*pi[2])*pi[2]+N[5]/((T-60*N[5])*pi[5])*pi[5]
+    ## Constant fn of t, and X.t
+    ##N[2]/((T-60*N[2])*pi[2])*pi[2]+N[5]/((T-60*N[5])*pi[5])*pi[5]
+    2*1.5/(600-1.5*60)
 }
 
 ss.daily.data <- function(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p){
