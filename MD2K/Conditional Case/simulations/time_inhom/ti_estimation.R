@@ -22,7 +22,7 @@ library(doRNG)
 source("./ti_setup.R")
 source("./ti_functions.R")
 
-bar.beta.set = c(0.02,0.03,0.04)
+bar.beta.set = c(0.02,0.025,0.03)
 ss = c(118, 66, 41)
 
 power = matrix(nrow = length(bar.beta.set), ncol = 16)
