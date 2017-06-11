@@ -1,4 +1,4 @@
-# Sample size calculation for Stratified Micro-Randomized Trial
+# Code for "Sample size calculation for Stratified Micro-Randomized Trial"
 
 The below table provides and overview of the R scripts.
 The R scripts are split by case (conditional or marginal) and then again by type (overall or robustness testing).
