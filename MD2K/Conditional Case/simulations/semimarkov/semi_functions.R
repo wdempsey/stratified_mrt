@@ -60,45 +60,48 @@ effect.gap <- function(P, window.length, effect) {
   return(f2)
 }
 
-daily.sim <- function(N, pi, P.0, P.treat, T, window.length, min.p, max.p) {
-  ## Simulate the Markov chain given length (T), transition matrix (P),
-  ## and initial point (init)
-  X.t = I.t = A.t = rho.t = vector(length = T)
-  X.t[1] = sample(1:length(pi), size = 1, prob=pi)
-  I.t[1] = as.numeric(X.t[1] == 2 | X.t[1] == 5)
-  if(I.t[1] == 1) {
-    rho.t[1] = max(min(N[X.t[1]]/((1 + (T - 120 - 1)*pi[X.t])),max.p),min.p)
-  } else{rho.t[1] = 0}
-  A.t[1] = rbinom(n=1,size=1, prob = rho.t)
-  H.t = list("X"=X.t[1],"A" = A.t[1], "I" = I.t[1], "rho" =rho.t[1])
-  t = 2
-  while (t <= T+window.length) {
-    if(A.t[t-1] ==0) {
-      X.t[t] = sample(1:nrow(P.0), size = 1, prob = P.0[X.t[t-1],])
-      if(t > T) {
-        I.t[t] = 0; rho.t[t] = 0
-      } else{
+daily.sim <- function(N, pi, theta.0, theta.treat, T,
+                      window.length, min.p, max.p) {
+    ## Simulate the Markov chain given length (T), transition matrix (P),
+    ## and initial point (init)
+    X.t = I.t = A.t = rho.t = vector(length = T)
+    L1.t = L2.t = L3.t = vector(length = T)
+
+    X.t[1] = sample(1:length(pi), size = 1, prob=pi)
+    I.t[1] = as.numeric(X.t[1] == 2 | X.t[1] == 5)
+    if(I.t[1] == 1) {
+        rho.t[1] = max(min(N[X.t[1]]/((1 + (T - 120 - 1)*pi[X.t])),max.p),min.p)
+    } else{rho.t[1] = 0}
+    A.t[1] = rbinom(n=1,size=1, prob = rho.t)
+    H.t = list("X"=X.t[1],"A" = A.t[1], "I" = I.t[1], "rho" =rho.t[1])
+    t = 2
+    while (t <= T+window.length) {
+        if(A.t[t-1] ==0) {
+            X.t[t] = sample(1:nrow(P.0), size = 1, prob = P.0[X.t[t-1],])
+            if(t > T) {
+                I.t[t] = 0; rho.t[t] = 0
+            } else{
         I.t[t] = as.numeric(X.t[t] == 2 | X.t[t] == 5)
         if( I.t[t] == 1) {
-          rho.t[t] = rand.probs(X.t[t], H.t, T, N, pi, lambda, min.p, max.p)
+            rho.t[t] = rand.probs(X.t[t], H.t, T, N, pi, lambda, min.p, max.p)
         } else ( rho.t[t] = 0 )
-      }
-      A.t[t] = rbinom(n=1,size=1, prob = rho.t[t])
-      H.t = list("X"=X.t[1:t],"A" = A.t[1:t], "I" = I.t[1:t], "rho" =rho.t[1:t])
-      t = t+1
-    } else {
-      I.t[t:(t+window.length-1)] = 0
-      rho.t[t:(t+window.length-1)] = 0
-      A.t[t:(t+window.length-1)] = 0
-      for(t.prime in t:(t+window.length-1)){
-        X.t[t.prime] = sample(1:nrow(P.0), size = 1, prob = P.treat[X.t[t.prime-1],])
-      }
-      H.t = list("X"=X.t[1:(t+window.length-1)],"A" = A.t[1:(t+window.length-1)],
-                 "I" = I.t[1:(t+window.length-1)], "rho" =rho.t[1:(t+window.length-1)])
-      t = t+window.length
+            }
+            A.t[t] = rbinom(n=1,size=1, prob = rho.t[t])
+            H.t = list("X"=X.t[1:t],"A" = A.t[1:t], "I" = I.t[1:t], "rho" =rho.t[1:t])
+            t = t+1
+        } else {
+            I.t[t:(t+window.length-1)] = 0
+            rho.t[t:(t+window.length-1)] = 0
+            A.t[t:(t+window.length-1)] = 0
+            for(t.prime in t:(t+window.length-1)){
+                X.t[t.prime] = sample(1:nrow(P.0), size = 1, prob = P.treat[X.t[t.prime-1],])
+            }
+            H.t = list("X"=X.t[1:(t+window.length-1)],"A" = A.t[1:(t+window.length-1)],
+                       "I" = I.t[1:(t+window.length-1)], "rho" =rho.t[1:(t+window.length-1)])
+            t = t+window.length
+        }
     }
-  }
-  return(H.t)
+    return(H.t)
 }
 
 daily.data <- function(N, pi, P.0, pi.wkend, P.wkend,
@@ -264,4 +267,302 @@ mean.Y <- function(P.ob.t, window.length) {
     total = total + (rowSums((P.ob.t%^%k)[c(2,5),4:6]))
   }
   return(c(0,total[1], 0, 0, total[2],0)/window.length)
+}
+
+
+### All functions related to the semiMarkov processes
+
+compatible.states <- function (i) {
+    ## Construct the set of states one
+    ## can transition to from i
+    if (i[2] == 1 | i[2] == 2) {
+        j = as.numeric(i); j[2] = i[2] + 1
+        return(as.matrix(j, ncol = 1))
+    } else {
+        j = as.numeric(i); j[2] = 1
+        j[3] = i[1]; j[4] = i[3]; j[5] = i[4]
+        return(as.matrix(cbind(c(1,j[2:5]), c(2,j[2:5])), nrow = 5))
+    }
+}
+
+q_ij.k <- function(i, j, k, theta) {
+    ## Function that returns probability of
+    ## sojourn time = k given initially in
+    ## state i = (X,U,L1,L2,L3)
+    ## and then transitioning to state j
+
+    comp.set = compatible.states(i)
+
+    notcompatible = all(!(!colSums(comp.set != j ) ))
+
+    if(notcompatible) {
+        ## j is not compatible with i
+        return( rep(0, length(k)) )
+    } else if (i[2] == 1) {
+
+        est.shape = 1/theta$prepk.scale
+        est.scale = exp(theta$prepk.coef%*%c(1,i[1]==2,i[3:5]==2))
+
+        soj.prob = (pweibull(k+1/2, scale = est.scale, shape = est.shape) -
+                    pweibull(k-1/2, scale = est.scale, shape = est.shape)) /
+            (1-pweibull(1/2, scale = est.scale, shape = est.shape))
+
+        return(soj.prob)
+
+    } else if (i[2] == 2) {
+
+        return( as.numeric(k == 1) )
+
+    } else if (i[2] == 3) {
+
+        est.shape = 1/theta$postpk.scale
+        est.scale = exp(theta$postpk.coef%*%c(1,i[1]==2,i[3:5]==2))
+
+
+        soj.prob = (pweibull(k+1/2, scale = est.scale, shape = est.shape) -
+                    pweibull(k-1/2, scale = est.scale, shape = est.shape)) /
+            (1-pweibull(1/2, scale = est.scale, shape = est.shape))
+
+        temp.trans = exp(theta$trans.coef%*%c(1,i[3:5]==2))
+        prob.stress.trans = temp.trans/(1+temp.trans)
+
+        prob.trans = prob.stress.trans*(j[1]==2) + (1-prob.stress.trans)*(j[1]==1)
+
+        return(soj.prob * prob.trans)
+    }
+
+}
+
+Q_ij.k <- function(i,j,k, theta) {
+    ## Function that returns probability of
+    ## sojourn time <= k given initially in
+    ## state i = (X,U,L1,L2,L3)
+    ## and then transitioning to state j
+
+    sum(q_ij.k(i,j,1:k,theta))
+
+}
+
+Q_i.k <- function(i, k, theta) {
+
+    comp.set = compatible.states(i)
+
+    if(i[2] != 3) {
+        j = as.numeric(comp.set)
+        return ( Q_ij.k(i,j,k,theta) )
+    } else{
+        total = 0
+        for (index in 1:2){
+            j = as.numeric(comp.set[,index])
+            total = total + Q_ij.k(i,j,k,theta)
+        }
+        return(total)
+    }
+}
+
+h_i.k <- function(i,k, theta) {
+    ## Function that returns the
+    ## sojourn time distribution
+    ## in state i
+
+    comp.set = compatible.states(i)
+    value = 0
+
+    for (index in 1:ncol(comp.set)) {
+        j = comp.set[,index]
+        value = value + q_ij.k(i,j,k,theta)
+    }
+
+    return(value)
+
+}
+
+H_i.k <- function(i,k, theta) {
+    ## Function that returns probability of
+    ## sojourn time <= k given initially in
+    ## state i = (X,U,L1,L2,L3)
+    ## and then transitioning to state j
+
+    sum(h_i.k(i,1:k,theta))
+
+}
+
+m_i <- function(i, theta, max.k = 100) {
+    ## Function that returns
+    ## the mean sojourn time in
+    ## state i
+    sum( (1:max.k)*h_i.k(i,1:max.k,theta) )
+}
+
+state.list <- function() {
+    ## Construct the whole state list
+    ## For the Markov chain
+    a = c(1,2)
+    b = c(1,2,3)
+
+    as.matrix(expand.grid(a,b,a,a,a))
+}
+
+Markov.transitions <- function(theta) {
+    ## Construct the Markov chain
+    ## that ignores the holding times
+    ## This is used to calculate the
+    ## stationary distribution
+
+    state = state.list()
+
+    P = matrix(0, ncol = nrow(state), nrow = nrow(state))
+
+    for(index in 1:nrow(P)) {
+
+        i = state[index,]
+
+        if(i[2] != 3) {
+            j = as.numeric(compatible.states(i))
+
+            which.column = which(!colSums(t(state) != j ) )
+
+            P[index, which.column] = 1.0
+        } else {
+            comp.set = compatible.states(i)
+            for (index.2 in 1:2) {
+                j = as.numeric(comp.set[,index.2])
+                which.column = which(!colSums(t(state) != j ) )
+
+                temp.trans = exp(theta$trans.coef%*%c(1,i[3:5]==2))
+                prob.stress.trans = temp.trans/(1+temp.trans)
+
+                prob.trans = prob.stress.trans*(j[1]==2) + (1-prob.stress.trans)*(j[1]==1)
+                P[index,which.column] = prob.trans
+            }
+        }
+    }
+    return(P)
+}
+
+stationary.dist <- function(theta) {
+    P = Markov.transitions(theta)
+    eig.P = eigen(P)
+
+    pi = round(Re(eig.P$vectors%*%diag(c(1,rep(0,nrow(P)-1)))%*%solve(eig.P$vectors)),6)
+
+    pi[1,]/sum(pi[1,])
+
+}
+
+limit.dist.SMC <- function(theta) {
+    states = state.list()
+    pi.SMC = rep(0, nrow(states))
+    pi = stationary.dist(theta)
+    for (index in 1:nrow(states)) {
+        i = as.numeric(states[index,])
+        pi.SMC[index] = m_i(i, theta) * pi[index]
+    }
+    pi.SMC/sum(pi.SMC)
+}
+
+p_ij.k <- function(i.loc, j.loc, k, states, theta, output) {
+    ## Compute prob of being in state j
+    ## after k steps from i
+    ## Using past.array = old p_ij.k's
+
+    i = as.numeric(states[i.loc,])
+    j = as.numeric(states[j.loc,])
+
+    if (k == 0) {
+        return(as.numeric(all(i == j)))
+    } else {
+
+        comp.set = compatible.states(i)
+
+        term1 = all(i==j) * (1- Q_i.k(i,k,theta))
+        term2 = 0
+        if (i[2] != 3) {
+            l = as.numeric(comp.set)
+            l.which.column = which(!colSums(t(state) != l ) )
+            term2 = term2 + q_ij.k( i, l, 0:(k-1), theta) %*%
+                output[l.which.column, j.loc, k:1]
+        } else {
+            for (index in 1:2) {
+                l = as.numeric(comp.set[,index])
+                l.which.column = which(!colSums(t(state) != l ) )
+                term2 = term2 + q_ij.k( i, l, 0:(k-1), theta) %*%
+                    output[l.which.column, j.loc, k:1]
+            }
+        }
+        return(term1 + term2)
+    }
+
+}
+
+int.fn <- function(j.loc, k, states, theta, output) {
+    i.s = 1:nrow(states)
+    return(sapply(i.s, p_ij.k, j.loc, k, states, theta, output))
+}
+
+p_all.k <- function(Delta, theta) {
+    ## Compute the probability
+    ## of being in state j
+    ## after k steps from
+    ## step i for k = 1:Delta
+
+    states <- state.list()
+    num.states <- nrow(states)
+    ## Output goes from step = 0 to Delta
+    output = array(dim = c(num.states, num.states, Delta+1))
+    for (k in 0:Delta) {
+        output[,,k+1] = sapply(1:num.states, int.fn, k, states,theta,output)
+    }
+
+    return(output)
+}
+
+proximal.outcome <- function(output) {
+    ## Returns expected fraction of time
+    ## Stressed in next hour
+
+    states <- state.list()
+
+    stress.valid.states = as.logical(states[,1] == 2)
+
+    fully.conditional.outcome = rowSums(output[,stress.valid.states,2:dim(output)[3]])/60
+
+    pi.SMC = limit.dist.SMC(theta)
+
+    return(c(
+    sum(fully.conditional.outcome[!stress.valid.states]*
+        pi.SMC[!stress.valid.states]/
+        sum(pi.SMC[!stress.valid.states]))
+    ,
+    sum(fully.conditional.outcome[stress.valid.states]*
+        pi.SMC[stress.valid.states]/
+        sum(pi.SMC[stress.valid.states]))
+    ))
+
+}
+
+treatment.effect<- function(baseline.prox, Delta,
+                            alt.beta) {
+    interior.fn <- function(theta.prime) {
+        theta.prime.df = list(
+            "prepk.coef" = theta.prime[1:5],
+            "prepk.scale" = theta.prime[6],
+            "postpk.coef" = theta.prime[7:11],
+            "postpk.scale" = theta.prime[12],
+            "trans.coef" = theta.prime[13:16]
+        )
+
+        output.prime = p_all.k(Delta, theta.prime.df)
+        treat.prox = proximal.outcome(output.prime)
+
+        return(
+            sum(
+            60^2*((treat.prox - baseline.prox) - alt.beta)^2
+            )
+        )
+
+    }
+
+    return(interior.fn)
+
 }
