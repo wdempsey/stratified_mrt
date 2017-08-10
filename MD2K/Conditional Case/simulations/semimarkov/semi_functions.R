@@ -3,77 +3,86 @@ require(foreach); require(TTR); require(zoo); require(expm)
 
 ### Simulation functions
 rand.probs <- function(X.t, H.t, T, N, pi, lambda, min.p, max.p) {
-  ## Calculate randomization probabilities given pi, x.t, lambda,
-  ## T, and N
-  power = length(H.t$X):1
-  remaining.time = T-(max(power)+1)
-  if(remaining.time < 0) {
-    true.rem.time = 0
-  } else if(remaining.time - N[X.t]*60 < 60) {
-    true.rem.time = remaining.time*pi[X.t]
-  } else if(remaining.time - N[X.t]*60 < 120) {
-    true.rem.time = (remaining.time-60)*pi[X.t]
-  } else {
-    true.rem.time = (remaining.time - 120)*pi[X.t]
-  }
-  rho.t = max(min((N[X.t] - sum(((1-lambda^power)*H.t$rho + lambda^power*H.t$A)*(H.t$X == X.t & H.t$I == 1)))/ (1 + true.rem.time),max.p),min.p)
-  return(rho.t)
-}
+    ## Calculate randomization probabilities given pi, x.t, lambda,
+    ## T, and N
 
-alt.calculateP <- function(bar.W, bar.Z) {
-  tilde.Z = c((bar.Z[1]-3)/2, 0,(bar.Z[1]-3)/2,
-              (bar.Z[2]-3)/2, 0,(bar.Z[2]-3)/2)
-
-  P  = matrix(0, nrow = 6, ncol = 6)
-
-  diag(P) = tilde.Z/(1+tilde.Z)
-  P[2,3] = P[5,6] = 1.0
-  P[1,2] = 1-P[1,1]; P[4,5] = 1-P[4,4]
-  P[3,1] = (1-bar.W[1]) * (1-P[3,3]); P[3,4] = bar.W[1] * (1-P[3,3])
-  P[6,1] = (1-bar.W[2]) * (1-P[6,6]); P[6,4] = bar.W[2] * (1-P[6,6])
-
-  return(P)
-}
-
-calculateP <- function(inputs) {
-  P.prime = matrix(0, nrow = 6, ncol = 6)
-  P.prime[1,1] = inputs[1]; P.prime[4,4] = inputs[4]
-  P.prime[2,3] = P.prime[5,6] = 1.0
-  P.prime[1,2] = 1-P.prime[1,1]; P.prime[4,5] = 1-P.prime[4,4]
-  P.prime[3,3] = inputs[2]; P.prime[6,6] = inputs[5]
-  P.prime[3,1] = (1-inputs[3]) * (1-P.prime[3,3]); P.prime[3,4] = inputs[3] * (1-P.prime[3,3])
-  P.prime[6,1] = (1-inputs[6]) * (1-P.prime[6,6]); P.prime[6,4] = inputs[6] * (1-P.prime[6,6])
-  return(P.prime)
-}
-
-effect.gap <- function(P, window.length, effect) {
-  f2 <- function(inputs) {
-    P.prime = calculateP(inputs)
-    total = 0.0
-    for (k in 1:window.length) {
-      total = total + (rowSums((P.prime%^%k)[c(2,5),4:6]) -
-                         rowSums((P%^%k)[c(2,5),4:6]))
+    power = length(H.t$X):1
+    remaining.time = T-(max(power)+1)
+    if(remaining.time < 0) {
+        true.rem.time = 0
+    } else if(remaining.time - N[X.t]*60 < 60) {
+        true.rem.time = remaining.time*pi[X.t]
+    } else if(remaining.time - N[X.t]*60 < 120) {
+        true.rem.time = (remaining.time-60)*pi[X.t]
+    } else {
+        true.rem.time = (remaining.time - 120)*pi[X.t]
     }
-    gap = sum((total - effect*window.length)^2)
-    return(gap)
-  }
-  return(f2)
+    rho.t = max(min((N[X.t] - sum(((1-lambda^power)*H.t$rho + lambda^power*H.t$A)*(H.t$X == X.t & H.t$I == 1)))/ (1 + true.rem.time),max.p),min.p)
+    return(rho.t)
 }
 
 daily.sim <- function(N, pi, theta.0, theta.treat, T,
-                      window.length, min.p, max.p) {
-    ## Simulate the Markov chain given length (T), transition matrix (P),
-    ## and initial point (init)
+                      window.length, min.p, max.p,
+                      pi.SMC) {
+    ## Simulate the semi Markov chain given length (T),
+    ## transition information
+    states = state.list()
     X.t = I.t = A.t = rho.t = vector(length = T)
     L1.t = L2.t = L3.t = vector(length = T)
+    init.state = states[,sample(1:length(pi.SMC), size = 1, prob=pi.SMC)]
 
-    X.t[1] = sample(1:length(pi), size = 1, prob=pi)
-    I.t[1] = as.numeric(X.t[1] == 2 | X.t[1] == 5)
+    X.t[1] = init.state[1]; U.t[1] = init.state[2]
+    L1.t[1] = init.state[3]; L2.t[1] = init.state[4]; L3.t[1] = init.state[5]
+    I.t[1] = as.numeric(U.t[1] == 2)
     if(I.t[1] == 1) {
-        rho.t[1] = max(min(N[X.t[1]]/((1 + (T - 120 - 1)*pi[X.t])),max.p),min.p)
+        rho.t[1] = max(min(N[X.t[1]]/((1 + (T - 120 - 1)*pi.simple[X.t])),max.p),min.p)
     } else{rho.t[1] = 0}
-    A.t[1] = rbinom(n=1,size=1, prob = rho.t)
+    A.t[1] = rbinom(n=1,size=1, prob = rho.t[1])
     H.t = list("X"=X.t[1],"A" = A.t[1], "I" = I.t[1], "rho" =rho.t[1])
+    t = 2
+    current.state = init.state
+    while(t <= T+window.length) {
+        if(A.t[t-1] == 1) {
+            k = 0
+            while(k  <=  window.length) {
+                current.theta = theta.treat
+                how.long = random.holding.time(current.state, current.theta)
+                X.t[t:(t+how.long-1)] = current.state[1]
+                U.t[t:(t+how.long-1)] = current.state[2]
+                L1.t[t:(t+how.long-1)] = current.state[3]
+                L2.t[t:(t+how.long-1)] = current.state[4]
+                L3.t[t:(t+how.long-1)] = current.state[5]
+
+                k = k + how.long
+                new.state = random.transition(current.state, current.theta)
+                t = t+k
+            }
+        } else{
+            current.theta = theta.0
+            how.long = random.holding.time(current.state, current.theta)
+            X.t[t:(t+how.long-1)] = current.state[1]
+            U.t[t:(t+how.long-1)] = current.state[2]
+            L1.t[t:(t+how.long-1)] = current.state[3]
+            L2.t[t:(t+how.long-1)] = current.state[4]
+            L3.t[t:(t+how.long-1)] = current.state[5]
+            I.t[t] = current.state
+            next.state = random.transition(current.state, current.theta)
+            t = t+how.long
+        }
+        X.t[t] = next.state[1]; U.t[t] = next.state[2]
+        L1.t[t] = next.state[3]; L2.t[t] = next.state[4]
+        L3.t[t] = next.state[5]
+        I.t[t] = as.numerc(U.t[t] == 2)
+        H.t = list("X"=X.t[1:(t-1)],"A" = A.t[1:(t-1)],
+                   "I" = I.t[1:(t-1)], "rho" =rho.t[1:(t-1)])
+        if(I.t[t] == 1) {
+            rho.t[t] = rand.probs(X.t[t], H.t, T, N, pi, lambda, min.p, max.p)
+        } else { rho.t[t] = 0 }
+        A.t[t] = rbinom(n=1,size=1, prob = rho.t[t])
+
+
+    }
+
     t = 2
     while (t <= T+window.length) {
         if(A.t[t-1] ==0) {
@@ -102,6 +111,64 @@ daily.sim <- function(N, pi, theta.0, theta.treat, T,
         }
     }
     return(H.t)
+}
+
+random.holding.time <- function(current.state, theta, max.hold = 100) {
+    i = current.state
+    if (i[2] == 2) {
+        return(1)
+    } else if (i[2] == 1) {
+        est.shape = 1/theta$prepk.scale
+        est.scale = exp(theta$prepk.coef%*%c(1,i[1]==2,i[3:5]==2))
+
+        soj.prob = (pweibull(1:max.hold+1/2, scale = est.scale, shape = est.shape) -
+                    pweibull(1:max.hold-1/2, scale = est.scale, shape = est.shape)) /
+            (1-pweibull(1/2, scale = est.scale, shape = est.shape))
+
+        return(
+            sample(1:max.hold, size = 1, prob = soj.prob)
+        )
+
+    } else if (i[2] == 3) {
+        est.shape = 1/theta$postpk.scale
+        est.scale = exp(theta$postpk.coef%*%c(1,i[1]==2,i[3:5]==2))
+
+        soj.prob = (pweibull(1:max.hold+1/2, scale = est.scale, shape = est.shape) -
+                    pweibull(1:max.hold-1/2, scale = est.scale, shape = est.shape)) /
+            (1-pweibull(1/2, scale = est.scale, shape = est.shape))
+
+        return(
+            sample(1:max.hold, size = 1, prob = soj.prob)
+        )
+
+    }
+}
+
+random.transition <- function(current.state, theta) {
+    i = current.state
+    states = state.list()
+    comp.set = compatible.states(i)
+
+    if (i[2] != 3) {
+        return(
+            as.numeric(comp.set)
+        )
+    } else {
+        temp.trans = exp(theta$trans.coef%*%c(1,i[3:5]==2))
+        prob.stress.trans = temp.trans/(1+temp.trans)
+
+        temp.which = sample(1:2, size =1, prob = c(1-prob.stress.trans,
+                                                   prob.stress.trans))
+
+        return(
+            as.numeric(comp.set[,temp.which])
+        )
+
+    }
+
+
+
+
 }
 
 daily.data <- function(N, pi, P.0, pi.wkend, P.wkend,
