@@ -1,9 +1,5 @@
-## This file computes the treatment
-## 
-library(Rmpi)
 library(parallel)
-library(snow)
-library(doParallel)
+
 
 # reads the list of nodes which have been allocated
 # by the cluster queue manager
@@ -15,12 +11,6 @@ ncpu <- mpi.universe.size() - 1
 # builds a socket cluster using these nodes
 cl <- makeCluster(ncpu, type='MPI')
 
-print(ncpu)
-
-registerDoParallel(cl)
-
-library(doRNG)
-
 source('./semi_setup.R'); source("./semi_functions.R")
 
 # bar.beta.set = c(0.02,0.0250,0.030)
@@ -28,6 +18,9 @@ source('./semi_setup.R'); source("./semi_functions.R")
 bar.beta.set = 0.0250
 
 system.time(temp <- p_all.k(window.length, theta.0))
+
+clusterExport(cl, varlist = c("state.list", "compatible.states", "Q_i.k","Q_ij.k", "q_ij.k", "parallel.p_ij.k"))
+              
 system.time(temp2 <- parallel.p_all.k(window.length, theta.0))
 
 # for(i in 1:length(bar.beta.set)) {

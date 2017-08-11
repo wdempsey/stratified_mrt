@@ -603,11 +603,9 @@ parallel.p_all.k <- function(Delta, theta) {
   output = array(dim = c(num.states, num.states, Delta+1))
   for (k in 0:Delta) {
     
-    temp = foreach(state.loc=1:num.states^2, .combine = "c",
-                   .export = c("parallel.p_ij.k","compatible.states", "Q_i.k", "q_ij.k"),
-                   .packages = c("foreach", "TTR","expm","zoo")) %dorng% parallel.p_ij.k(state.loc, k, 
-                                                                                  states, theta, output)
-    output[,,k+1] = matrix(temp, nrow = num.states, ncol = num.states)
+    output[,,k+1] = matrix( parSapply(cl = cl, 1:num.states^2, parallel.p_ij.k, k=k, states=states, 
+                          theta=theta, output = output),
+                   nrow = num.states, ncol = num.states)
     
   }
   
