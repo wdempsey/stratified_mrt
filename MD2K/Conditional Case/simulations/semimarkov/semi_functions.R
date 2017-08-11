@@ -1,5 +1,5 @@
 ### Functions associated with Sample Size Calculations
-require(foreach); require(TTR); require(zoo); require(expm)
+require(foreach); require(TTR); require(zoo); require(expm); require(doRNG)
 
 ### Simulation functions
 rand.probs <- function(X.t, H.t, T, N, pi, lambda, min.p, max.p) {
@@ -27,22 +27,20 @@ daily.sim <- function(N, pi, theta.0, theta.treat, T,
     ## Simulate the semi Markov chain given length (T),
     ## transition information
     states = state.list()
-    X.t = I.t = A.t = rho.t = vector(length = T)
-    L1.t = L2.t = L3.t = vector(length = T)
-    init.state = states[,sample(1:length(pi.SMC), size = 1, prob=pi.SMC)]
-
-    X.t[1] = init.state[1]; U.t[1] = init.state[2]
-    L1.t[1] = init.state[3]; L2.t[1] = init.state[4]; L3.t[1] = init.state[5]
-    I.t[1] = as.numeric(U.t[1] == 2)
-    if(I.t[1] == 1) {
-        rho.t[1] = max(min(N[X.t[1]]/((1 + (T - 120 - 1)*pi.simple[X.t])),max.p),min.p)
-    } else{rho.t[1] = 0}
-    A.t[1] = rbinom(n=1,size=1, prob = rho.t[1])
-    H.t = list("X"=X.t[1],"A" = A.t[1], "I" = I.t[1], "rho" =rho.t[1])
-    t = 2
+    I.t = A.t = rho.t = rep(0,length = T+2*window.length)
+    X.t = U.t = L1.t = L2.t = L3.t = vector(length = T+2*window.length)
+    init.state = states[sample(1:length(pi.SMC), size = 1, prob=pi.SMC),]
+    t = 1
+    X.t[t] = init.state[1]; U.t[t] = init.state[2]
+    L1.t[t] = init.state[3]; L2.t[t] = init.state[4]; L3.t[t] = init.state[5]
+    I.t[t] = as.numeric(U.t[t] == 2)
+    if(I.t[t] == 1) {
+        rho.t[t] = max(min(N[X.t[t]]/((1 + (T - 120 - 1)*pi.simple[X.t])),max.p),min.p)
+    } else{rho.t[t] = 0}
+    A.t[t] = rbinom(n=1,size=1, prob = rho.t[1])
     current.state = init.state
     while(t <= T+window.length) {
-        if(A.t[t-1] == 1) {
+        if(A.t[t] == 1) {
             k = 0
             while(k  <=  window.length) {
                 current.theta = theta.treat
@@ -54,8 +52,8 @@ daily.sim <- function(N, pi, theta.0, theta.treat, T,
                 L3.t[t:(t+how.long-1)] = current.state[5]
 
                 k = k + how.long
-                new.state = random.transition(current.state, current.theta)
-                t = t+k
+                t = t+how.long
+                current.state = random.transition(current.state, current.theta)
             }
         } else{
             current.theta = theta.0
@@ -65,50 +63,21 @@ daily.sim <- function(N, pi, theta.0, theta.treat, T,
             L1.t[t:(t+how.long-1)] = current.state[3]
             L2.t[t:(t+how.long-1)] = current.state[4]
             L3.t[t:(t+how.long-1)] = current.state[5]
-            I.t[t] = current.state
-            next.state = random.transition(current.state, current.theta)
+            current.state = random.transition(current.state, current.theta)
             t = t+how.long
         }
-        X.t[t] = next.state[1]; U.t[t] = next.state[2]
-        L1.t[t] = next.state[3]; L2.t[t] = next.state[4]
-        L3.t[t] = next.state[5]
-        I.t[t] = as.numerc(U.t[t] == 2)
+        X.t[t] = current.state[1]; U.t[t] = current.state[2]
+        L1.t[t] = current.state[3]; L2.t[t] = current.state[4]
+        L3.t[t] = current.state[5]
+        I.t[t] = as.numeric(U.t[t] == 2) * (t <= T)
         H.t = list("X"=X.t[1:(t-1)],"A" = A.t[1:(t-1)],
-                   "I" = I.t[1:(t-1)], "rho" =rho.t[1:(t-1)])
+                   "I" = I.t[1:(t-1)], "rho" = rho.t[1:(t-1)])
+        
         if(I.t[t] == 1) {
             rho.t[t] = rand.probs(X.t[t], H.t, T, N, pi, lambda, min.p, max.p)
         } else { rho.t[t] = 0 }
         A.t[t] = rbinom(n=1,size=1, prob = rho.t[t])
-
-
-    }
-
-    t = 2
-    while (t <= T+window.length) {
-        if(A.t[t-1] ==0) {
-            X.t[t] = sample(1:nrow(P.0), size = 1, prob = P.0[X.t[t-1],])
-            if(t > T) {
-                I.t[t] = 0; rho.t[t] = 0
-            } else{
-        I.t[t] = as.numeric(X.t[t] == 2 | X.t[t] == 5)
-        if( I.t[t] == 1) {
-            rho.t[t] = rand.probs(X.t[t], H.t, T, N, pi, lambda, min.p, max.p)
-        } else ( rho.t[t] = 0 )
-            }
-            A.t[t] = rbinom(n=1,size=1, prob = rho.t[t])
-            H.t = list("X"=X.t[1:t],"A" = A.t[1:t], "I" = I.t[1:t], "rho" =rho.t[1:t])
-            t = t+1
-        } else {
-            I.t[t:(t+window.length-1)] = 0
-            rho.t[t:(t+window.length-1)] = 0
-            A.t[t:(t+window.length-1)] = 0
-            for(t.prime in t:(t+window.length-1)){
-                X.t[t.prime] = sample(1:nrow(P.0), size = 1, prob = P.treat[X.t[t.prime-1],])
-            }
-            H.t = list("X"=X.t[1:(t+window.length-1)],"A" = A.t[1:(t+window.length-1)],
-                       "I" = I.t[1:(t+window.length-1)], "rho" =rho.t[1:(t+window.length-1)])
-            t = t+window.length
-        }
+        if (any(is.na(H.t$A))) {print(t)}
     }
     return(H.t)
 }
@@ -166,52 +135,46 @@ random.transition <- function(current.state, theta) {
 
     }
 
-
-
-
 }
 
-daily.data <- function(N, pi, P.0, pi.wkend, P.wkend,
-                       P.treat.list, T, window.length, min.p, max.p){
+daily.data <- function(N, pi, theta.0, theta.treat,
+                       T, window.length, min.p, max.p, pi.SMC){
     ## Generate the daily data for a participant given all the inputs.
     inside.fn <- function(day) {
-        if((day == 6) | (day == 7)) {
-            P.temp = P.wkend
-            pi.temp = pi.wkend
-        } else {
-            P.temp = P.0
-            pi.temp = pi
-        }
-        P.treat = P.treat.list[[day]]
-        H.t = daily.sim(N, pi.temp, P.temp,
-                        P.treat, T, window.length, min.p, max.p)
-        Y.t = SMA(is.element(H.t$X,c(4,5,6)),window.length)
-        Y.t = Y.t[(window.length+1):(length(Y.t))]
+        theta.treat = theta.treat.list[[day]]
+        H.t = daily.sim(N, pi, theta.0, theta.treat, T,
+                        window.length, min.p, max.p,
+                        pi.SMC)
+        Y.t = SMA(is.element(H.t$X,c(2)),window.length)
+        Y.t = Y.t[(window.length+1):(T+window.length)]
         prob.gamma = rollapply(1-H.t$rho, window.length, FUN = prod)
         prob.gamma = prob.gamma[-1]
         prob.nu = rollapply((H.t$A==0),window.length, FUN = prod)
         prob.nu = prob.nu[-1]
         psi.t = prob.nu/prob.gamma
         data = cbind(day,1:T,Y.t,H.t$A[1:T],H.t$X[1:T],
-                     H.t$rho[1:T],H.t$I[1:T], psi.t)
+                     H.t$rho[1:T],H.t$I[1:T], psi.t[1:T])
         return(data[data[,7] == 1 & data[,8] > 0,])
     }
     return(inside.fn)
 }
 
-full.trial.sim <- function(N, pi, P.0, pi.wkend, P.wkend,
-                           P.treat.list, T, window.length, min.p, max.p) {
+full.trial.sim <- function(N, pi, theta.0, theta.treat.list, 
+                           T, window.length, min.p, max.p, pi.SMC) {
     ## Generate the full trial simulation using a vector of the daily treatment effects
-    foreach(i=1:length(P.treat.list), .combine = "rbind",
-            .packages = c("foreach", "TTR","expm","zoo")) %dorng% daily.data(N, pi, P.0, pi.wkend, P.wkend,
-                                                                             P.treat.list, T, window.length, min.p, max.p)(i)
+    foreach(i=1:length(theta.treat.list), .combine = "rbind",
+            .packages = c("foreach", "TTR","expm","zoo")) %dorng% daily.data(N, pi, theta.0, 
+                                                                             theta.treat.list, T, 
+                                                                             window.length, min.p, 
+                                                                             max.p, pi.SMC)(i)
 }
 
-MRT.sim <- function(num.people, N, pi, P.0, pi.wkend, P.wkend,
-                    P.treat.list, T, window.length, min.p, max.p) {
+MRT.sim <- function(num.people, N, pi, theta.0, theta.treat.list,
+                    T, window.length, min.p, max.p, pi.SMC) {
     ## Do the trial across people!!
     output = foreach(i=1:num.people, .combine = "rbind",
-                     .packages = c("foreach", "TTR","expm","zoo")) %dorng% cbind(i,full.trial.sim(N, pi, P.0, pi.wkend, P.wkend, P.treat.list, T, window.length, min.p, max.p))
+                     .packages = c("foreach", "TTR","expm","zoo")) %dorng% cbind(i,full.trial.sim(N, pi, theta.0, theta.treat.list, 
+                                                                                                  T, window.length, min.p, max.p, pi.SMC))
   colnames(output) = c("person", "day", "t", "Y.t","A.t","X,t", "rho.t", "I.t","psi.t")
   return(output)
 }
@@ -219,7 +182,7 @@ MRT.sim <- function(num.people, N, pi, P.0, pi.wkend, P.wkend,
 f.t <-  function(t,X.t) {
   # For each t generate X.t
   cov.t = c(1, floor((t-1)/T), floor((t-1)/T)^2)
-  return(rep(cov.t,2)*c(rep(X.t==2,3),rep(X.t==5,3)))
+  return(rep(cov.t,2)*c(rep(X.t==1,3),rep(X.t==2,3)))
 }
 
 cov.gen <-  function(t) {
@@ -300,17 +263,25 @@ estimation <- function(people) {
   entries = c(entries1,entries2)
 
   Sigma = solve(XWX,Middle)%*%solve(XWX)
+  
+  summ.fit.people = summary(fit.people)
+  test.Sigma = summ.fit.people$sigma^2 * solve(crossprod(Covariates))
 
-  output = (fit.people$coefficients[entries]%*%solve(Sigma[entries,entries], fit.people$coefficients[entries]))
 
+  output = (fit.people$coefficients[entries]%*%solve(Sigma[entries,entries],fit.people$coefficients[entries]))
+  
+  test.output = (fit.people$coefficients[entries]%*%solve(test.Sigma[entries,entries],fit.people$coefficients[entries]))
+  
+  print(c(output,test.output))
+  
   return(output)
 }
 
 estimation.simulation <- function(num.persons, N, pi, P.0, pi.wkend, P.wkend,
                                   P.treat.list, T, window.length, min.p, max.p) {
 
-    people = MRT.sim(num.persons, N, pi, P.0, pi.wkend, P.wkend,
-                     P.treat.list, T, window.length, min.p, max.p)
+    people = MRT.sim(num.persons, N, pi, theta.0, theta.treat.list,
+                     T, window.length, min.p, max.p, pi.SMC)
 
     output = estimation(people)
 
@@ -546,13 +517,13 @@ p_ij.k <- function(i.loc, j.loc, k, states, theta, output) {
         term2 = 0
         if (i[2] != 3) {
             l = as.numeric(comp.set)
-            l.which.column = which(!colSums(t(state) != l ) )
+            l.which.column = which(!colSums(t(states) != l ) )
             term2 = term2 + q_ij.k( i, l, 0:(k-1), theta) %*%
                 output[l.which.column, j.loc, k:1]
         } else {
             for (index in 1:2) {
                 l = as.numeric(comp.set[,index])
-                l.which.column = which(!colSums(t(state) != l ) )
+                l.which.column = which(!colSums(t(states) != l ) )
                 term2 = term2 + q_ij.k( i, l, 0:(k-1), theta) %*%
                     output[l.which.column, j.loc, k:1]
             }
@@ -582,6 +553,65 @@ p_all.k <- function(Delta, theta) {
     }
 
     return(output)
+}
+
+parallel.p_ij.k <- function(state.loc, k, states, theta, output) {
+  ## Compute prob of being in state j
+  ## after k steps from i
+  ## Using past.array = old p_ij.k's
+  
+  i.loc = ceiling(state.loc/nrow(states))
+  j.loc = state.loc - (i.loc - 1) * nrow(states)
+  
+  i = as.numeric(states[i.loc,])
+  j = as.numeric(states[j.loc,])
+  
+  if (k == 0) {
+    return(as.numeric(all(i == j)))
+  } else {
+    
+    comp.set = compatible.states(i)
+    
+    term1 = all(i==j) * (1- Q_i.k(i,k,theta))
+    term2 = 0
+    if (i[2] != 3) {
+      l = as.numeric(comp.set)
+      l.which.column = which(!colSums(t(states) != l ) )
+      term2 = term2 + q_ij.k( i, l, 0:(k-1), theta) %*%
+        output[l.which.column, j.loc, k:1]
+    } else {
+      for (index in 1:2) {
+        l = as.numeric(comp.set[,index])
+        l.which.column = which(!colSums(t(states) != l ) )
+        term2 = term2 + q_ij.k( i, l, 0:(k-1), theta) %*%
+          output[l.which.column, j.loc, k:1]
+      }
+    }
+    return(term1 + term2)
+  }
+}
+
+parallel.p_all.k <- function(Delta, theta) {
+  ## Compute the probability
+  ## of being in state j
+  ## after k steps from
+  ## step i for k = 1:Delta
+  
+  states <- state.list()
+  num.states <- nrow(states)
+  ## Output goes from step = 0 to Delta
+  output = array(dim = c(num.states, num.states, Delta+1))
+  for (k in 0:Delta) {
+    
+    temp = foreach(state.loc=1:num.states^2, .combine = "c",
+                   .export = c("parallel.p_ij.k","compatible.states", "Q_i.k", "q_ij.k"),
+                   .packages = c("foreach", "TTR","expm","zoo")) %dorng% parallel.p_ij.k(state.loc, k, 
+                                                                                  states, theta, output)
+    output[,,k+1] = matrix(temp, nrow = num.states, ncol = num.states)
+    
+  }
+  
+  return(output)
 }
 
 proximal.outcome <- function(output) {
