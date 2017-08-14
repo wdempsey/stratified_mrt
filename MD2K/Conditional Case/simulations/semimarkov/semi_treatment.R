@@ -1,5 +1,7 @@
+library(Rmpi)
 library(parallel)
-
+library(snow)
+library(doParallel)
 
 # reads the list of nodes which have been allocated
 # by the cluster queue manager
@@ -13,31 +15,28 @@ cl <- makeCluster(ncpu, type='MPI')
 
 source('./semi_setup.R'); source("./semi_functions.R")
 
-# bar.beta.set = c(0.02,0.0250,0.030)
+### Parallelize the optimizations!!!! S
+### So all 10*3 = 30 cores needed for 6 - 8 hours!! 
 
-bar.beta.set = 0.0250
+bar.beta.set = c(0.02,0.0250,0.030)
 
-system.time(temp <- p_all.k(window.length, theta.0))
+Delta = window.length
+output = p_all.k(Delta, theta.0)
+baseline.prox = proximal.outcome(output, theta.0)
+init.theta = unlist(theta.0)
 
-clusterExport(cl, varlist = c("state.list", "compatible.states", "Q_i.k","Q_ij.k", "q_ij.k", "parallel.p_ij.k"))
-              
-system.time(temp2 <- parallel.p_all.k(window.length, theta.0))
+results = optimal.treatment.barbetaset(baseline.prox, Delta, bar.beta.set, init.theta)
 
-# for(i in 1:length(bar.beta.set)) {
-#   ## Treatment vector
-#   Z.t = Vectorize(cov.gen)((1:num.days) * T)
-#   d = find.d(bar.beta.set[i],init.d,max.d,Z.t,num.days)
-#   daily.treat = -t(Z.t)%*%d
-#   
-#   day = 5
-#   
-#   alt.beta = rep(daily.treat[5], 2)
-#   
-#   
-#   
-# }
+list.results = list()
 
-# save(ss,file="ss.RData")
+for (i in 1:length(bar.beta.set)) {
+  start = (i-1)*num.days + 1
+  end = (i-1)*num.days + num.days
+  list.results[[i]] = results[,start:end]
+}
+
+
+save(list.results,file="results.RData")
 # save(power,file="power.RData")
 
 stopCluster(cl)

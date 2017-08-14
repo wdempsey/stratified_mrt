@@ -612,7 +612,7 @@ parallel.p_all.k <- function(Delta, theta) {
   return(output)
 }
 
-proximal.outcome <- function(output) {
+proximal.outcome <- function(output, theta) {
     ## Returns expected fraction of time
     ## Stressed in next hour
 
@@ -648,7 +648,7 @@ treatment.effect<- function(baseline.prox, Delta,
         )
 
         output.prime = p_all.k(Delta, theta.prime.df)
-        treat.prox = proximal.outcome(output.prime)
+        treat.prox = proximal.outcome(output.prime, theta.prime.df)
 
         return(
             sum(
@@ -661,3 +661,39 @@ treatment.effect<- function(baseline.prox, Delta,
     return(interior.fn)
 
 }
+
+optimal.treatment.day <- function(baseline.prox, Delta, daily.treat, day, init.theta) {
+  
+  alt.beta = rep(daily.treat[day], 2)
+  
+  treat.fn = treatment.effect(baseline.prox, Delta,
+                              alt.beta) 
+  
+  temp.optim = optim(init.theta, treat.fn)
+  
+  return(temp.optim$par)
+  
+}
+
+optimal.treatment.study <- function(baseline.prox, Delta, daily.treat, init.theta) {
+  foreach(day=1:num.days, .combine = "cbind", 
+          .packages = c("foreach", "TTR","expm","zoo")) %dorng% optimal.treatment.day(baseline.prox, Delta, daily.treat, day, init.theta)
+}
+
+optimal.treatment.barbeta <- function(baseline.prox, Delta, bar.beta, init.theta) {
+  ## Treatment vector
+  Z.t = Vectorize(cov.gen)((1:num.days) * T)
+  d = find.d(bar.beta,init.d,max.d,Z.t,num.days)
+  daily.treat = -t(Z.t)%*%d
+  
+  return(optimal.treatment.study(baseline.prox, Delta, daily.treat, init.theta))
+  
+}
+
+optimal.treatment.barbetaset <- function(baseline.prox, Delta, bar.beta.set, init.theta) {
+  
+  foreach(i=1:length(bar.beta.set), .combine = "cbind", 
+          .packages = c("foreach", "TTR","expm","zoo")) %dorng% optimal.treatment.barbeta(baseline.prox, Delta, bar.beta.set[i], init.theta)
+
+}
+
