@@ -663,16 +663,18 @@ treatment.effect<- function(baseline.prox, Delta,
 }
 
 optimal.treatment.day <- function(baseline.prox, Delta, daily.treat, day, init.theta) {
-  
-  alt.beta = rep(daily.treat[day], 2)
-  
-  treat.fn = treatment.effect(baseline.prox, Delta,
-                              alt.beta) 
-  
-  temp.optim = optim(init.theta, treat.fn)
-  
-  return(temp.optim$par)
-  
+  if(abs(daily.treat[day]) < 10^-8) {
+    return(init.theta)
+  } else{
+    alt.beta = rep(daily.treat[day], 2)
+    
+    treat.fn = treatment.effect(baseline.prox, Delta,
+                                alt.beta) 
+    
+    temp.optim = optim(init.theta, treat.fn, control = list(abstol = 10^(-4)))
+    
+    return(temp.optim$par)
+  }  
 }
 
 optimal.treatment.study <- function(baseline.prox, Delta, daily.treat, init.theta) {
