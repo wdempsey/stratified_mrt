@@ -664,6 +664,8 @@ treatment.effect<- function(baseline.prox, Delta,
 
 optimal.treatment.day <- function(baseline.prox, Delta, daily.treat, day, init.theta) {
   if(abs(daily.treat[day]) < 10^-8) {
+    day.barbeta.output = c(mean(daily.treat), day, unlist(temp.optim$par))
+    
     return(init.theta)
   } else{
     alt.beta = rep(daily.treat[day], 2)
@@ -672,6 +674,18 @@ optimal.treatment.day <- function(baseline.prox, Delta, daily.treat, day, init.t
                                 alt.beta) 
     
     temp.optim = optim(init.theta, treat.fn, control = list(abstol = 10^(-4)))
+    
+    print(paste("Done with day =", day, "for bar.beta =", round(mean(daily.treat),3)))    
+    
+    temp.output = c(mean(daily.treat), day, unlist(temp.optim$par))
+    
+    day.barbeta.output = as.matrix(t(temp.output))
+    
+    write.table(day.barbeta.output, "export.csv", row.names = FALSE, 
+              col.names = FALSE, na = "NA", append = TRUE, sep = ",")
+    
+    temp.par = temp.optim$par
+    saveRDS(temp.par, file = paste("output_",-mean(daily.treat),"_",day, ".rds", sep = ""))
     
     return(temp.optim$par)
   }  
