@@ -270,15 +270,11 @@ estimation <- function(people) {
 
   output = (fit.people$coefficients[entries]%*%solve(Sigma[entries,entries],fit.people$coefficients[entries]))
   
-  test.output = (fit.people$coefficients[entries]%*%solve(test.Sigma[entries,entries],fit.people$coefficients[entries]))
-  
-  print(c(output,test.output))
-  
   return(output)
 }
 
-estimation.simulation <- function(num.persons, N, pi, P.0, pi.wkend, P.wkend,
-                                  P.treat.list, T, window.length, min.p, max.p) {
+estimation.simulation <- function(num.persons, N, pi, theta.0, theta.treat.list,
+                                  T, window.length, min.p, max.p, pi.SMC) {
 
     people = MRT.sim(num.persons, N, pi, theta.0, theta.treat.list,
                      T, window.length, min.p, max.p, pi.SMC)
@@ -713,3 +709,16 @@ optimal.treatment.barbetaset <- function(baseline.prox, Delta, bar.beta.set, ini
 
 }
 
+
+relist.thetas <- function(unlisted.thetas) {
+  ## Take the unlisted theta and make it into the
+  ## list you need
+  list.thetas = list(
+  "prepk.coef" = unlisted.thetas[1:5],
+  "prepk.scale" = unlisted.thetas[6],
+  "postpk.coef" = unlisted.thetas[7:11],
+  "postpk.scale" = unlisted.thetas[12],
+  "trans.coef" = unlisted.thetas[13:16]
+  )
+  return(list.thetas)
+}
