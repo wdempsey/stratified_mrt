@@ -652,9 +652,9 @@ treatment.effect<- function(baseline.prox, Delta,
     output.prime = p_all.k(Delta, theta.prime.df)
     treat.prox = proximal.outcome(output.prime, theta.prime.df)
     
-    print(  sum(
-      60^2*((treat.prox - baseline.prox) - alt.beta)^2
-    ))
+    # print(  sum(
+    #   60^2*((treat.prox - baseline.prox) - alt.beta)^2
+    # ))
     
     return(
       sum(
