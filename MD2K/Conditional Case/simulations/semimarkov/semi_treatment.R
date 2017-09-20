@@ -1,43 +1,43 @@
+##First read in the arguments listed at the command line
+args=(commandArgs(TRUE))
+
+print(args)
+
+##args is now a list of character vectors
+## First check to see if arguments are passed.
+## Then cycle through each element of the list and evaluate the expressions.
+if(length(args)==0){
+  print("No arguments supplied.")
+  ##supply default values
+  barbeta = 0.02
+  day = 1
+}else{
+  barbeta = as.numeric(args[[1]])
+  day = as.numeric(args[[2]])
+}
+
+print(barbeta)
+print(day)
+
 library(Rmpi)
 library(parallel)
 library(snow)
 library(doParallel)
 
-# reads the list of nodes which have been allocated
-# by the cluster queue manager
-nodefile <- Sys.getenv("PBS_NODEFILE")
-hostlist <- read.table(nodefile, skip=1, header=FALSE)
-
-ncpu <- mpi.universe.size() - 1
-
-# builds a socket cluster using these nodes
-cl <- makeCluster(ncpu, type='MPI')
-
 source('./semi_setup.R'); source("./semi_functions.R")
-
-### Parallelize the optimizations!!!! S
-### So all 10*3 = 30 cores needed for 6 - 8 hours!! 
-
-bar.beta.set = c(0.02,0.0250,0.030)
 
 Delta = window.length
 output = p_all.k(Delta, theta.0)
 baseline.prox = proximal.outcome(output, theta.0)
 init.theta = unlist(theta.0)
 
-results = optimal.treatment.barbetaset(baseline.prox, Delta, bar.beta.set, init.theta)
+Z.t = Vectorize(cov.gen)((1:num.days) * T)
+d = find.d(barbeta,init.d,max.d,Z.t,num.days)
+daily.treat = -t(Z.t)%*%d
 
-list.results = list()
+print(barbeta)
+print(day)
 
-for (i in 1:length(bar.beta.set)) {
-  start = (i-1)*num.days + 1
-  end = (i-1)*num.days + num.days
-  list.results[[i]] = results[,start:end]
-}
+results = optimal.treatment.day(baseline.prox, Delta, daily.treat, day, init.theta)
 
-
-save(list.results,file="results.RData")
-# save(power,file="power.RData")
-
-stopCluster(cl)
-
+print(results)

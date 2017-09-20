@@ -83,7 +83,7 @@ expmodel.theta.0 <- list(
   "prepk.scale" = 1,
   "postpk.coef" = c(log(10.3/2),log(11.8/2) - log(10.3/2),0,0,0),
   "postpk.scale" = 1,
-  "trans.coef" = c(log(0.074/(1-0.074)), log(0.53/(1-0.53)) - log(0.074/(1-0.074)), 0, 0) 
+  "trans.coef" = c(log(0.074/(1-0.074)), log(0.53/(1-0.53)) - log(0.074/(1-0.074)), 0, 0)
 )
 
 theta.treat.list = list()
