@@ -10,14 +10,24 @@ if(length(args)==0){
   print("No arguments supplied.")
   ##supply default values
   barbeta = 0.02
-  numpersons = 17
 }else{
   barbeta = as.numeric(args[[1]])
-  numpersons = as.numeric(args[[2]])
 }
 
+all_numpersons = c(41, 66, 118)
+all_barbeta = c(0.03, 0.025, 0.02)
+
+num.persons = all_numpersons[all_barbeta == barbeta]
+
 print(barbeta)
-print(numpersons)
+print(num.persons)
+
+library(Rmpi)
+library(parallel)
+library(snow)
+library(doParallel)
+
+source('./semi_setup.R'); source("./semi_functions.R")
 
 all_treatmentthetas = read.csv("output/export_adjusted.csv", header = FALSE)
 
@@ -32,24 +42,8 @@ for (day in 1:num.days) {
   }
 }
 
-library(Rmpi)
-library(parallel)
-library(snow)
-library(doParallel)
-
-# reads the list of nodes which have been allocated
-# by the cluster queue manager
-nodefile <- Sys.getenv("PBS_NODEFILE")
-hostlist <- read.table(nodefile, skip=1, header=FALSE)
-
-ncpu <- mpi.universe.size() - 1
-
-# builds a socket cluster using these nodes
-cl <- makeCluster(ncpu, type='MPI')
-
-source('./semi_setup.R'); source("./semi_functions.R")
-
 Delta = window.length
+
 
 set.seed("231310")
 All.studies = foreach(k=1:1000, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dorng%
@@ -62,5 +56,5 @@ print(c(barbeta, mean(All.studies)))
 
 saveRDS(power, file = paste("power_",barbeta,".rds", sep = ""))
 
-stopCluster(cl)
-
+mpi.close.Rslaves()
+mpi.quit()
