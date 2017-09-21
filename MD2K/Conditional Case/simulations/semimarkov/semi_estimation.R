@@ -32,13 +32,13 @@ source('./semi_setup.R'); source("./semi_functions.R")
 all_treatmentthetas = read.csv("output/export_adjusted.csv", header = FALSE)
 
 theta.treat.list = list()
-for (day in 1:num.days) {
-  if(day == 1) {
-    theta.treat.list[[day]] = theta.0
+for (temp.day in 1:num.days) {
+  if(temp.day == 1) {
+    theta.treat.list[[temp.day]] = theta.0
   } else{
-    row.id = which(all_treatmentthetas[,1] == -barbeta & all_treatmentthetas[,2] == day)
+    row.id = which(all_treatmentthetas[,1] == -barbeta & all_treatmentthetas[,2] == temp.day)
     unlisted.theta.day = as.numeric(all_treatmentthetas[row.id, 3:ncol(all_treatmentthetas)])
-    theta.treat.list[[day]] = relist.thetas(unlisted.theta.day)
+    theta.treat.list[[temp.day]] = relist.thetas(unlisted.theta.day)
   }
 }
 

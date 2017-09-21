@@ -37,7 +37,16 @@ daily.treat = -t(Z.t)%*%d
 
 print(barbeta)
 print(day)
+print(daily.treat[day])
+print(baseline.prox)
+print(Delta)
 
 results = optimal.treatment.day(baseline.prox, Delta, daily.treat, day, init.theta)
 
 print(results)
+
+results.df = relist.thetas(results)
+results.output = p_all.k(Delta, results.df)
+results.prox = proximal.outcome(results.output, results.df)
+print(results.prox)
+

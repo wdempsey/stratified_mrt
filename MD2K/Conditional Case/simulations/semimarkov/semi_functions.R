@@ -652,14 +652,21 @@ treatment.effect<- function(baseline.prox, Delta,
     output.prime = p_all.k(Delta, theta.prime.df)
     treat.prox = proximal.outcome(output.prime, theta.prime.df)
     
-    # print(  sum(
-    #   60^2*((treat.prox - baseline.prox) - alt.beta)^2
-    # ))
+    cutoff = sum(
+      60^2*((baseline.prox - baseline.prox) - alt.beta)^2
+    )
     
+    result = sum(
+      60^2*((treat.prox - baseline.prox) - alt.beta)^2
+    )
+    
+    if(result < cutoff) {
+      print(theta.prime)
+      print(result)
+    }
+
     return(
-      sum(
-        60^2*((treat.prox - baseline.prox) - alt.beta)^2
-      )
+      result
     )
     
   }
@@ -679,7 +686,7 @@ optimal.treatment.day <- function(baseline.prox, Delta, daily.treat, day, init.t
     treat.fn = treatment.effect(baseline.prox, Delta,
                                 alt.beta) 
     
-    temp.optim = optim(init.theta, treat.fn, control = list(trace=TRUE))
+    temp.optim = optim(par = init.theta, fn = treat.fn, method=c("L-BFGS-B"), control = list(trace=TRUE, maxit = 1000))
     
     print(paste("Parameters =", temp.optim$par))
     print(paste("Value =", temp.optim$val))
