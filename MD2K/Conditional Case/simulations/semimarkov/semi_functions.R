@@ -5,7 +5,7 @@ require(foreach); require(TTR); require(zoo); require(expm); require(doRNG)
 rand.probs <- function(X.t, H.t, T, N, pi, lambda, min.p, max.p) {
   ## Calculate randomization probabilities given pi, x.t, lambda,
   ## T, and N
-  
+
   power = length(H.t$X):1
   remaining.time = T-(max(power)+1)
   if(remaining.time < 0) {
@@ -50,7 +50,7 @@ daily.sim <- function(N, pi, theta.0, theta.treat, T,
         L1.t[t:(t+how.long-1)] = current.state[3]
         L2.t[t:(t+how.long-1)] = current.state[4]
         L3.t[t:(t+how.long-1)] = current.state[5]
-        
+
         k = k + how.long
         t = t+how.long
         current.state = random.transition(current.state, current.theta)
@@ -72,7 +72,7 @@ daily.sim <- function(N, pi, theta.0, theta.treat, T,
     I.t[t] = as.numeric(U.t[t] == 2) * (t <= T)
     H.t = list("X"=X.t[1:(t-1)],"A" = A.t[1:(t-1)],
                "I" = I.t[1:(t-1)], "rho" = rho.t[1:(t-1)])
-    
+
     if(I.t[t] == 1) {
       rho.t[t] = rand.probs(X.t[t], H.t, T, N, pi, lambda, min.p, max.p)
     } else { rho.t[t] = 0 }
@@ -90,27 +90,27 @@ random.holding.time <- function(current.state, theta, max.hold = 100) {
   } else if (i[2] == 1) {
     est.shape = 1/theta$prepk.scale
     est.scale = exp(theta$prepk.coef%*%c(1,i[1]==2,i[3:5]==2))
-    
+
     soj.prob = (pweibull(1:max.hold+1/2, scale = est.scale, shape = est.shape) -
                   pweibull(1:max.hold-1/2, scale = est.scale, shape = est.shape)) /
       (1-pweibull(1/2, scale = est.scale, shape = est.shape))
-    
+
     return(
       sample(1:max.hold, size = 1, prob = soj.prob)
     )
-    
+
   } else if (i[2] == 3) {
     est.shape = 1/theta$postpk.scale
     est.scale = exp(theta$postpk.coef%*%c(1,i[1]==2,i[3:5]==2))
-    
+
     soj.prob = (pweibull(1:max.hold+1/2, scale = est.scale, shape = est.shape) -
                   pweibull(1:max.hold-1/2, scale = est.scale, shape = est.shape)) /
       (1-pweibull(1/2, scale = est.scale, shape = est.shape))
-    
+
     return(
       sample(1:max.hold, size = 1, prob = soj.prob)
     )
-    
+
   }
 }
 
@@ -119,7 +119,7 @@ random.transition <- function(current.state, theta) {
   i = current.state
   states = state.list()
   comp.set = compatible.states(i)
-  
+
   if (i[2] != 3) {
     return(
       as.numeric(comp.set)
@@ -127,16 +127,16 @@ random.transition <- function(current.state, theta) {
   } else {
     temp.trans = exp(theta$trans.coef%*%c(1,i[3:5]==2))
     prob.stress.trans = temp.trans/(1+temp.trans)
-    
+
     temp.which = sample(1:2, size =1, prob = c(1-prob.stress.trans,
                                                prob.stress.trans))
-    
+
     return(
       as.numeric(comp.set[,temp.which])
     )
-    
+
   }
-  
+
 }
 
 daily.data <- function(N, pi, theta.0, theta.treat,
@@ -161,13 +161,13 @@ daily.data <- function(N, pi, theta.0, theta.treat,
   return(inside.fn)
 }
 
-full.trial.sim <- function(N, pi, theta.0, theta.treat.list, 
+full.trial.sim <- function(N, pi, theta.0, theta.treat.list,
                            T, window.length, min.p, max.p, pi.SMC) {
   ## Generate the full trial simulation for a person using a vector of the daily treatment effects
   foreach(i=1:length(theta.treat.list), .combine = "rbind",
-          .packages = c("foreach", "TTR","expm","zoo")) %dorng% daily.data(N, pi, theta.0, 
-                                                                           theta.treat.list, T, 
-                                                                           window.length, min.p, 
+          .packages = c("foreach", "TTR","expm","zoo")) %dorng% daily.data(N, pi, theta.0,
+                                                                           theta.treat.list, T,
+                                                                           window.length, min.p,
                                                                            max.p, pi.SMC)(i)
 }
 
@@ -175,7 +175,7 @@ MRT.sim <- function(num.people, N, pi, theta.0, theta.treat.list,
                     T, window.length, min.p, max.p, pi.SMC) {
   ## Do the trial across people!!
   output = foreach(i=1:num.people, .combine = "rbind",
-                   .packages = c("foreach", "TTR","expm","zoo")) %dorng% cbind(i,full.trial.sim(N, pi, theta.0, theta.treat.list, 
+                   .packages = c("foreach", "TTR","expm","zoo")) %dorng% cbind(i,full.trial.sim(N, pi, theta.0, theta.treat.list,
                                                                                                 T, window.length, min.p, max.p, pi.SMC))
   colnames(output) = c("person", "day", "t", "Y.t","A.t","X,t", "rho.t", "I.t","psi.t")
   return(output)
@@ -199,14 +199,14 @@ find.d <- function(bar.d, init.d, max.d, Z.t, num.days) {
   # Find the quadratic terms given inputs
   D.star = num.days -1
   d = vector(length = 3)
-  
+
   d[1] = 0
   d[3] = D.star * bar.d * solve(D.star^2 * ( D.star^2/3 - max.d))
   d[2] = -2 * d[3] * max.d
-  
+
   ### Fix the scaling to get right average
   d = (ncol(Z.t) * bar.d / sum(d%*%Z.t)) * d
-  
+
   return(d)
 }
 
@@ -232,63 +232,63 @@ M.function <- function(cov, data, log.weights, person, XWX, fit) {
 }
 
 estimation <- function(people) {
-  
+
   Y.t.person = people[,4]
   A.t.person = people[,5]
   X.t.person = people[,6]
   rho.t.person = people[,7]
   psi.t.person = people[,9]
-  
+
   B.t.person = t(Vectorize(cov.gen)((people[,2]-1)*T + people[,3]))
-  
+
   ## Set of possible weights depending on unique X.t
   set.rho = foreach(lvl=1:length(unique(X.t.person)), .combine = "c", .packages = c("foreach", "TTR","expm","zoo")) %dorng% mean(rho.t.person[X.t.person==lvl], na.rm = TRUE)
-  
+
   rho = unlist(lapply(X.t.person,tilde.p))
-  
+
   Z.t.person = B.t.person*matrix(rep(A.t.person-rho,3), ncol = 3)
-  
+
   cov.t.person = cbind(B.t.person,Z.t.person)
-  
+
   log.weights = A.t.person*(log(rho) - log(rho.t.person)) + (1-A.t.person)*(log(1-rho) - log(1-rho.t.person)) + log(psi.t.person)
-  
+
   fit.people = lm(Y.t.person~(B.t.person+Z.t.person):as.factor(X.t.person)-1,weights = exp(log.weights))
-  
+
   Covariates = model.matrix(fit.people)
-  
+
   num.persons = length(unique(people[,1]))
-  
+
   XWX = foreach(i=1:num.persons, .combine = "+", .packages = c("foreach", "TTR","expm","zoo")) %dorng% extract.tXWX(Covariates,people,log.weights,i)
-  
+
   Middle = foreach(person=1:num.persons, .combine = "+", .packages = c("foreach", "TTR","expm","zoo")) %dorng% M.function(Covariates, people, log.weights, person,XWX,fit.people)
-  
+
   entries1 = c(7:9)
   entries2 = c(10:12)
   entries = c(entries1,entries2)
-  
+
   Sigma = solve(XWX,Middle)%*%solve(XWX)
-  
+
   summ.fit.people = summary(fit.people)
   test.Sigma = summ.fit.people$sigma^2 * solve(crossprod(Covariates))
-  
-  
+
+
   output = (fit.people$coefficients[entries]%*%solve(Sigma[entries,entries],fit.people$coefficients[entries]))
-  
+
   return(output)
 }
 
 estimation.simulation <- function(num.persons, N, pi, theta.0, theta.treat.list,
                                   T, window.length, min.p, max.p, pi.SMC) {
-  
+
   people = MRT.sim(num.persons, N, pi, theta.0, theta.treat.list,
                    T, window.length, min.p, max.p, pi.SMC)
-  
+
   output = estimation(people)
-  
+
   alpha.0 = 0.05; p = 6; q = 6;
-  
+
   multiple = p*(num.persons-q-1)/(num.persons-p-q)
-  
+
   return (output>multiple*qf((1-alpha.0), df1 = p, df2 = num.persons - p - q))
 }
 
@@ -328,47 +328,47 @@ q_ij.k <- function(i, j, k, theta) {
   ## sojourn time = k given initially in
   ## state i = (X,U,L1,L2,L3)
   ## and then transitioning to state j
-  
+
   comp.set = compatible.states(i)
-  
+
   notcompatible = all(!(!colSums(comp.set != j ) ))
-  
+
   if(notcompatible) {
     ## j is not compatible with i
     return( rep(0, length(k)) )
   } else if (i[2] == 1) {
-    
+
     est.shape = 1/theta$prepk.scale
     est.scale = exp(theta$prepk.coef%*%c(1,i[1]==2,i[3:5]==2))
-    
+
     soj.prob = (pweibull(k+1/2, scale = est.scale, shape = est.shape) -
                   pweibull(k-1/2, scale = est.scale, shape = est.shape)) /
       (1-pweibull(1/2, scale = est.scale, shape = est.shape))
-    
+
     return(soj.prob)
-    
+
   } else if (i[2] == 2) {
-    
+
     return( as.numeric(k == 1) )
-    
+
   } else if (i[2] == 3) {
-    
+
     est.shape = 1/theta$postpk.scale
     est.scale = exp(theta$postpk.coef%*%c(1,i[1]==2,i[3:5]==2))
-    
-    
+
+
     soj.prob = (pweibull(k+1/2, scale = est.scale, shape = est.shape) -
                   pweibull(k-1/2, scale = est.scale, shape = est.shape)) /
       (1-pweibull(1/2, scale = est.scale, shape = est.shape))
-    
+
     temp.trans = exp(theta$trans.coef%*%c(1,i[3:5]==2))
     prob.stress.trans = temp.trans/(1+temp.trans)
-    
+
     prob.trans = prob.stress.trans*(j[1]==2) + (1-prob.stress.trans)*(j[1]==1)
-    
+
     return(soj.prob * prob.trans)
   }
-  
+
 }
 
 Q_ij.k <- function(i,j,k, theta) {
@@ -376,15 +376,15 @@ Q_ij.k <- function(i,j,k, theta) {
   ## sojourn time <= k given initially in
   ## state i = (X,U,L1,L2,L3)
   ## and then transitioning to state j
-  
+
   sum(q_ij.k(i,j,1:k,theta))
-  
+
 }
 
 Q_i.k <- function(i, k, theta) {
-  
+
   comp.set = compatible.states(i)
-  
+
   if(i[2] != 3) {
     j = as.numeric(comp.set)
     return ( Q_ij.k(i,j,k,theta) )
@@ -402,17 +402,17 @@ h_i.k <- function(i,k, theta) {
   ## Function that returns the
   ## sojourn time distribution
   ## in state i
-  
+
   comp.set = compatible.states(i)
   value = 0
-  
+
   for (index in 1:ncol(comp.set)) {
     j = comp.set[,index]
     value = value + q_ij.k(i,j,k,theta)
   }
-  
+
   return(value)
-  
+
 }
 
 H_i.k <- function(i,k, theta) {
@@ -420,9 +420,9 @@ H_i.k <- function(i,k, theta) {
   ## sojourn time <= k given initially in
   ## state i = (X,U,L1,L2,L3)
   ## and then transitioning to state j
-  
+
   sum(h_i.k(i,1:k,theta))
-  
+
 }
 
 m_i <- function(i, theta, max.k = 100) {
@@ -437,7 +437,7 @@ state.list <- function() {
   ## For the Markov chain
   a = c(1,2)
   b = c(1,2,3)
-  
+
   as.matrix(expand.grid(a,b,a,a,a))
 }
 
@@ -446,30 +446,30 @@ Markov.transitions <- function(theta) {
   ## that ignores the holding times
   ## This is used to calculate the
   ## stationary distribution
-  
+
   state = state.list()
-  
+
   P = matrix(0, ncol = nrow(state), nrow = nrow(state))
-  
+
   for(index in 1:nrow(P)) {
-    
+
     i = state[index,]
-    
+
     if(i[2] != 3) {
       j = as.numeric(compatible.states(i))
-      
+
       which.column = which(!colSums(t(state) != j ) )
-      
+
       P[index, which.column] = 1.0
     } else {
       comp.set = compatible.states(i)
       for (index.2 in 1:2) {
         j = as.numeric(comp.set[,index.2])
         which.column = which(!colSums(t(state) != j ) )
-        
+
         temp.trans = exp(theta$trans.coef%*%c(1,i[3:5]==2))
         prob.stress.trans = temp.trans/(1+temp.trans)
-        
+
         prob.trans = prob.stress.trans*(j[1]==2) + (1-prob.stress.trans)*(j[1]==1)
         P[index,which.column] = prob.trans
       }
@@ -481,11 +481,11 @@ Markov.transitions <- function(theta) {
 stationary.dist <- function(theta) {
   P = Markov.transitions(theta)
   eig.P = eigen(P)
-  
+
   pi = round(Re(eig.P$vectors%*%diag(c(1,rep(0,nrow(P)-1)))%*%solve(eig.P$vectors)),6)
-  
+
   pi[1,]/sum(pi[1,])
-  
+
 }
 
 limit.dist.SMC <- function(theta) {
@@ -503,16 +503,16 @@ p_ij.k <- function(i.loc, j.loc, k, states, theta, output) {
   ## Compute prob of being in state j
   ## after k steps from i
   ## Using past.array = old p_ij.k's
-  
+
   i = as.numeric(states[i.loc,])
   j = as.numeric(states[j.loc,])
-  
+
   if (k == 0) {
     return(as.numeric(all(i == j)))
   } else {
-    
+
     comp.set = compatible.states(i)
-    
+
     term1 = all(i==j) * (1- Q_i.k(i,k,theta))
     term2 = 0
     if (i[2] != 3) {
@@ -530,7 +530,7 @@ p_ij.k <- function(i.loc, j.loc, k, states, theta, output) {
     }
     return(term1 + term2)
   }
-  
+
 }
 
 int.fn <- function(j.loc, k, states, theta, output) {
@@ -543,7 +543,7 @@ p_all.k <- function(Delta, theta) {
   ## of being in state j
   ## after k steps from
   ## step i for k = 1:Delta
-  
+
   states <- state.list()
   num.states <- nrow(states)
   ## Output goes from step = 0 to Delta
@@ -551,7 +551,7 @@ p_all.k <- function(Delta, theta) {
   for (k in 0:Delta) {
     output[,,k+1] = sapply(1:num.states, int.fn, k, states,theta,output)
   }
-  
+
   return(output)
 }
 
@@ -559,19 +559,19 @@ parallel.p_ij.k <- function(state.loc, k, states, theta, output) {
   ## Compute prob of being in state j
   ## after k steps from i
   ## Using past.array = old p_ij.k's
-  
+
   i.loc = ceiling(state.loc/nrow(states))
   j.loc = state.loc - (i.loc - 1) * nrow(states)
-  
+
   i = as.numeric(states[i.loc,])
   j = as.numeric(states[j.loc,])
-  
+
   if (k == 0) {
     return(as.numeric(all(i == j)))
   } else {
-    
+
     comp.set = compatible.states(i)
-    
+
     term1 = all(i==j) * (1- Q_i.k(i,k,theta))
     term2 = 0
     if (i[2] != 3) {
@@ -596,34 +596,34 @@ parallel.p_all.k <- function(Delta, theta) {
   ## of being in state j
   ## after k steps from
   ## step i for k = 1:Delta
-  
+
   states <- state.list()
   num.states <- nrow(states)
   ## Output goes from step = 0 to Delta
   output = array(dim = c(num.states, num.states, Delta+1))
   for (k in 0:Delta) {
-    
-    output[,,k+1] = matrix( parSapply(cl = cl, 1:num.states^2, parallel.p_ij.k, k=k, states=states, 
+
+    output[,,k+1] = matrix( parSapply(cl = cl, 1:num.states^2, parallel.p_ij.k, k=k, states=states,
                                       theta=theta, output = output),
                             nrow = num.states, ncol = num.states)
-    
+
   }
-  
+
   return(output)
 }
 
 proximal.outcome <- function(output, theta) {
   ## Returns expected fraction of time
   ## Stressed in next hour
-  
+
   states <- state.list()
-  
+
   stress.valid.states = as.logical(states[,1] == 2)
-  
+
   fully.conditional.outcome = rowSums(output[,stress.valid.states,2:dim(output)[3]])/60
-  
+
   pi.SMC = limit.dist.SMC(theta)
-  
+
   return(c(
     sum(fully.conditional.outcome[!stress.valid.states]*
           pi.SMC[!stress.valid.states]/
@@ -633,14 +633,14 @@ proximal.outcome <- function(output, theta) {
           pi.SMC[stress.valid.states]/
           sum(pi.SMC[stress.valid.states]))
   ))
-  
+
 }
 
 treatment.effect<- function(baseline.prox, Delta,
                             alt.beta) {
   interior.fn <- function(theta.prime) {
     # print(theta.prime)
-    
+
     theta.prime.df = list(
       "prepk.coef" = theta.prime[1:5],
       "prepk.scale" = theta.prime[6],
@@ -648,67 +648,57 @@ treatment.effect<- function(baseline.prox, Delta,
       "postpk.scale" = theta.prime[12],
       "trans.coef" = theta.prime[13:16]
     )
-    
+
     output.prime = p_all.k(Delta, theta.prime.df)
     treat.prox = proximal.outcome(output.prime, theta.prime.df)
-    
-    cutoff = sum(
-      60^2*((baseline.prox - baseline.prox) - alt.beta)^2
-    )
-    
+
     result = sum(
       60^2*((treat.prox - baseline.prox) - alt.beta)^2
     )
-    
-    if(result < cutoff) {
-      print(theta.prime)
-      print(result)
-    }
 
-    return(
-      result
-    )
-    
+    return(result)
+
   }
-  
+
   return(interior.fn)
-  
+
 }
 
 optimal.treatment.day <- function(baseline.prox, Delta, daily.treat, day, init.theta) {
   if(abs(daily.treat[day]) < 10^-8) {
     day.barbeta.output = c(mean(daily.treat), day, unlist(temp.optim$par))
-    
+
     return(init.theta)
   } else{
     alt.beta = rep(daily.treat[day], 2)
-    
+
     treat.fn = treatment.effect(baseline.prox, Delta,
-                                alt.beta) 
-    
-    temp.optim = optim(par = init.theta, fn = treat.fn, method=c("L-BFGS-B"), control = list(trace=TRUE, maxit = 1000))
-    
+                                alt.beta)
+
+    temp.optim = optim(init.theta,treat.fn, control = list(trace=TRUE, maxit = 2000))
+
     print(paste("Parameters =", temp.optim$par))
     print(paste("Value =", temp.optim$val))
-    
-    print(paste("Done with day =", day, "for bar.beta =", round(mean(daily.treat),3)))    
-    
+    print(paste("Convergence =", temp.optim$convergence))
+
+    print(paste("Done with day =", day, "for bar.beta =", round(mean(daily.treat),3)))
+
     temp.output = c(mean(daily.treat), day, unlist(temp.optim$par))
-    
+
     day.barbeta.output = as.matrix(t(temp.output))
-    
-    write.table(day.barbeta.output, "export.csv", row.names = FALSE, 
+
+    write.table(day.barbeta.output, "export.csv", row.names = FALSE,
                 col.names = FALSE, na = "NA", append = TRUE, sep = ",")
-    
+
     temp.par = temp.optim$par
     saveRDS(temp.par, file = paste("output_",-mean(daily.treat),"_",day, ".rds", sep = ""))
-    
+
     return(temp.optim$par)
-  }  
+  }
 }
 
 optimal.treatment.study <- function(baseline.prox, Delta, daily.treat, init.theta) {
-  foreach(day=1:num.days, .combine = "cbind", 
+  foreach(day=1:num.days, .combine = "cbind",
           .packages = c("foreach", "TTR","expm","zoo")) %dorng% optimal.treatment.day(baseline.prox, Delta, daily.treat, day, init.theta)
 }
 
@@ -717,16 +707,16 @@ optimal.treatment.barbeta <- function(baseline.prox, Delta, bar.beta, init.theta
   Z.t = Vectorize(cov.gen)((1:num.days) * T)
   d = find.d(bar.beta,init.d,max.d,Z.t,num.days)
   daily.treat = -t(Z.t)%*%d
-  
+
   return(optimal.treatment.study(baseline.prox, Delta, daily.treat, init.theta))
-  
+
 }
 
 optimal.treatment.barbetaset <- function(baseline.prox, Delta, bar.beta.set, init.theta) {
-  
-  foreach(i=1:length(bar.beta.set), .combine = "cbind", 
+
+  foreach(i=1:length(bar.beta.set), .combine = "cbind",
           .packages = c("foreach", "TTR","expm","zoo")) %dorng% optimal.treatment.barbeta(baseline.prox, Delta, bar.beta.set[i], init.theta)
-  
+
 }
 
 
