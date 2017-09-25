@@ -736,3 +736,6 @@ relist.thetas <- function(unlisted.thetas) {
   )
   return(list.thetas)
 }
+
+
+## Computing gradient 
