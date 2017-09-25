@@ -675,7 +675,11 @@ optimal.treatment.day <- function(baseline.prox, Delta, daily.treat, day, init.t
     treat.fn = treatment.effect(baseline.prox, Delta,
                                 alt.beta)
 
-    temp.optim = optim(init.theta,treat.fn, method = "L-BFGS-B", control = list(trace=TRUE, maxit = 2000))
+    lower.bound = as.numeric(c(init.theta[1:5]-0.5,init.theta[6]*0.8, init.theta[7:11]-0.5, init.theta[12]*0.8, init.theta[13:16]-0.5))
+    upper.bound = as.numeric(c(init.theta[1:5]+0.5,init.theta[6]*1.2, init.theta[7:11]+0.5, init.theta[12]*1.2, init.theta[13:16]+0.5))
+    
+    temp.optim = optim(init.theta,treat.fn, method = "L-BFGS-B", lower = lower.bound, upper = upper.bound, 
+                       control = list(trace=3, maxit = 2000))
 
     print(paste("Parameters =", temp.optim$par))
     print(paste("Value =", temp.optim$val))
