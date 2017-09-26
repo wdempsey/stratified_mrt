@@ -518,13 +518,13 @@ p_ij.k <- function(i.loc, j.loc, k, states, theta, output) {
     if (i[2] != 3) {
       l = as.numeric(comp.set)
       l.which.column = which(!colSums(t(states) != l ) )
-      term2 = term2 + q_ij.k( i, l, 0:(k-1), theta) %*%
+      term2 = term2 + q_ij.k( i, l, 1:k, theta) %*%
         output[l.which.column, j.loc, k:1]
     } else {
       for (index in 1:2) {
         l = as.numeric(comp.set[,index])
         l.which.column = which(!colSums(t(states) != l ) )
-        term2 = term2 + q_ij.k( i, l, 0:(k-1), theta) %*%
+        term2 = term2 + q_ij.k( i, l, 1:k, theta) %*%
           output[l.which.column, j.loc, k:1]
       }
     }
@@ -612,7 +612,7 @@ parallel.p_all.k <- function(Delta, theta) {
   return(output)
 }
 
-proximal.outcome <- function(output, theta) {
+proximal.outcome <- function(output, theta, pi.SMC) {
   ## Returns expected fraction of time
   ## Stressed in next hour
 
@@ -622,7 +622,7 @@ proximal.outcome <- function(output, theta) {
 
   fully.conditional.outcome = rowSums(output[,stress.valid.states,2:dim(output)[3]])/60
 
-  pi.SMC = limit.dist.SMC(theta)
+  # pi.SMC = limit.dist.SMC(theta)
 
   return(c(
     sum(fully.conditional.outcome[!stress.valid.states]*
@@ -637,7 +637,7 @@ proximal.outcome <- function(output, theta) {
 }
 
 treatment.effect<- function(baseline.prox, Delta,
-                            alt.beta) {
+                            alt.beta, pi.SMC) {
   interior.fn <- function(theta.prime) {
     # print(theta.prime)
 
@@ -650,10 +650,10 @@ treatment.effect<- function(baseline.prox, Delta,
     )
 
     output.prime = p_all.k(Delta, theta.prime.df)
-    treat.prox = proximal.outcome(output.prime, theta.prime.df)
+    treat.prox = proximal.outcome(output.prime, theta.prime.df, pi.SMC)
 
-    result = sum(
-      60^2*((treat.prox - baseline.prox) - alt.beta)^2
+    result = max(
+      60*abs((treat.prox - baseline.prox) - alt.beta)
     )
 
     return(result)
@@ -664,7 +664,7 @@ treatment.effect<- function(baseline.prox, Delta,
 
 }
 
-optimal.treatment.day <- function(baseline.prox, Delta, daily.treat, day, init.theta) {
+optimal.treatment.day <- function(baseline.prox, Delta, daily.treat, day, init.theta, pi.SMC) {
   if(abs(daily.treat[day]) < 10^-8) {
     day.barbeta.output = c(mean(daily.treat), day, unlist(temp.optim$par))
 
@@ -673,13 +673,13 @@ optimal.treatment.day <- function(baseline.prox, Delta, daily.treat, day, init.t
     alt.beta = rep(daily.treat[day], 2)
 
     treat.fn = treatment.effect(baseline.prox, Delta,
-                                alt.beta)
+                                alt.beta, pi.SMC)
 
     lower.bound = as.numeric(c(init.theta[1:5]-0.5,init.theta[6]*0.8, init.theta[7:11]-0.5, init.theta[12]*0.8, init.theta[13:16]-0.5))
     upper.bound = as.numeric(c(init.theta[1:5]+0.5,init.theta[6]*1.2, init.theta[7:11]+0.5, init.theta[12]*1.2, init.theta[13:16]+0.5))
     
-    temp.optim = optim(init.theta,treat.fn, method = "L-BFGS-B", lower = lower.bound, upper = upper.bound, 
-                       control = list(trace=3, maxit = 2000))
+    temp.optim = optim(init.theta,treat.fn, # method = "L-BFGS-B", lower = lower.bound, upper = upper.bound, 
+                       control = list(trace=TRUE, maxit = 2000))
 
     print(paste("Parameters =", temp.optim$par))
     print(paste("Value =", temp.optim$val))
@@ -738,4 +738,134 @@ relist.thetas <- function(unlisted.thetas) {
 }
 
 
-## Computing gradient 
+## Computing gradient fn
+
+deriv.proximal.outcome <- function(output, theta, pi.SMC) {
+  ## Returns expected fraction of time
+  ## Stressed in next hour
+  
+  states <- state.list()
+  
+  stress.valid.states = as.logical(states[,1] == 2)
+  
+  fully.conditional.outcome = rowSums(output[,stress.valid.states,2:dim(output)[3]])/60
+  
+  # pi.SMC = limit.dist.SMC(theta)
+  
+  return(c(
+    sum(fully.conditional.outcome[!stress.valid.states]*
+          pi.SMC[!stress.valid.states]/
+          sum(pi.SMC[!stress.valid.states]))
+    ,
+    sum(fully.conditional.outcome[stress.valid.states]*
+          pi.SMC[stress.valid.states]/
+          sum(pi.SMC[stress.valid.states]))
+  ))
+  
+}
+
+
+
+deriv.p_ij.k <- function(i.loc, j.loc, k, states, theta, output) {
+  ## Compute prob of being in state j
+  ## after k steps from i
+  ## Using past.array = old p_ij.k's
+  
+  i = as.numeric(states[i.loc,])
+  j = as.numeric(states[j.loc,])
+  
+  if (k == 0) {
+    return(as.numeric(all(i == j)))
+  } else {
+    
+    comp.set = compatible.states(i)
+    
+    term1 = all(i==j) * (1- Q_i.k(i,k,theta))
+    term2 = 0
+    if (i[2] != 3) {
+      l = as.numeric(comp.set)
+      l.which.column = which(!colSums(t(states) != l ) )
+      term2 = term2 + q_ij.k( i, l, 0:(k-1), theta) %*%
+        output[l.which.column, j.loc, k:1]
+    } else {
+      for (index in 1:2) {
+        l = as.numeric(comp.set[,index])
+        l.which.column = which(!colSums(t(states) != l ) )
+        term2 = term2 + q_ij.k( i, l, 0:(k-1), theta) %*%
+          output[l.which.column, j.loc, k:1]
+      }
+    }
+    return(term1 + term2)
+  }
+  
+}
+
+deriv.int.fn <- function(j.loc, k, states, theta, output) {
+  i.s = 1:nrow(states)
+  return(sapply(i.s, p_ij.k, j.loc, k, states, theta, output))
+}
+
+deriv.p_all.k <- function(Delta, theta) {
+  ## Compute the probability
+  ## of being in state j
+  ## after k steps from
+  ## step i for k = 1:Delta
+  
+  states <- state.list()
+  num.states <- nrow(states)
+  ## Output goes from step = 0 to Delta
+  output = array(dim = c(num.states, num.states, Delta+1))
+  for (k in 0:Delta) {
+    output[,,k+1] = sapply(1:num.states, deriv.int.fn, k, states,theta,output)
+  }
+  
+  return(output)
+}
+
+deriv.q_ij.k <- function(i, j, k, theta) {
+  ## Function that returns probability of
+  ## sojourn time = k given initially in
+  ## state i = (X,U,L1,L2,L3)
+  ## and then transitioning to state j
+  
+  comp.set = compatible.states(i)
+  
+  notcompatible = all(!(!colSums(comp.set != j ) ))
+  
+  if(notcompatible) {
+    ## j is not compatible with i
+    return( rep(0, length(k)) )
+  } else if (i[2] == 1) {
+    
+    est.shape = 1/theta$prepk.scale
+    est.scale = exp(theta$prepk.coef%*%c(1,i[1]==2,i[3:5]==2))
+    
+    soj.prob = (pweibull(k+1/2, scale = est.scale, shape = est.shape) -
+                  pweibull(k-1/2, scale = est.scale, shape = est.shape)) /
+      (1-pweibull(1/2, scale = est.scale, shape = est.shape))
+    
+    return(soj.prob)
+    
+  } else if (i[2] == 2) {
+    
+    return( as.numeric(k == 1) )
+    
+  } else if (i[2] == 3) {
+    
+    est.shape = 1/theta$postpk.scale
+    est.scale = exp(theta$postpk.coef%*%c(1,i[1]==2,i[3:5]==2))
+    
+    
+    soj.prob = (pweibull(k+1/2, scale = est.scale, shape = est.shape) -
+                  pweibull(k-1/2, scale = est.scale, shape = est.shape)) /
+      (1-pweibull(1/2, scale = est.scale, shape = est.shape))
+    
+    temp.trans = exp(theta$trans.coef%*%c(1,i[3:5]==2))
+    prob.stress.trans = temp.trans/(1+temp.trans)
+    
+    prob.trans = prob.stress.trans*(j[1]==2) + (1-prob.stress.trans)*(j[1]==1)
+    
+    return(soj.prob * prob.trans)
+  }
+  
+}

@@ -10,7 +10,7 @@ if(length(args)==0){
   print("No arguments supplied.")
   ##supply default values
   barbeta = 0.02
-  day = 1
+  day = 2
 }else{
   barbeta = as.numeric(args[[1]])
   day = as.numeric(args[[2]])
@@ -28,7 +28,7 @@ source('./semi_setup.R'); source("./semi_functions.R")
 
 Delta = window.length
 output = p_all.k(Delta, theta.0)
-baseline.prox = proximal.outcome(output, theta.0)
+baseline.prox = proximal.outcome(output, theta.0, pi.SMC)
 init.theta = unlist(theta.0)
 
 Z.t = Vectorize(cov.gen)((1:num.days) * T)
@@ -41,7 +41,8 @@ print(daily.treat[day])
 print(baseline.prox)
 print(Delta)
 
-results = optimal.treatment.day(baseline.prox, Delta, daily.treat, day, init.theta)
+results = optimal.treatment.day(baseline.prox, Delta, 
+                                daily.treat, day, init.theta, pi.SMC)
 
 print(results)
 
