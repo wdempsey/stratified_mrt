@@ -9,7 +9,7 @@ print(args)
 if(length(args)==0){
   print("No arguments supplied.")
   ##supply default values
-  barbeta = 0.02
+  barbeta = 0.025
 }else{
   barbeta = as.numeric(args[[1]])
 }
@@ -29,7 +29,7 @@ library(doParallel)
 
 source('./semi_setup.R'); source("./semi_functions.R")
 
-all_treatmentthetas = read.csv("output/export_adjusted.csv", header = FALSE)
+all_treatmentthetas = read.csv("output/export.csv", header = FALSE)
 
 theta.treat.list = list()
 for (temp.day in 1:num.days) {
@@ -47,7 +47,7 @@ Delta = window.length
 
 set.seed("231310")
 All.studies = foreach(k=1:1000, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dorng%
-  estimation.simulation(num.persons, N, pi, theta.0, theta.treat.list,
+  estimation.simulation(num.persons, N, pi.simple, theta.0, theta.treat.list,
                         T, window.length, min.p, max.p, pi.SMC)
 
 power = mean(All.studies)

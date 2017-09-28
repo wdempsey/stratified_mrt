@@ -139,7 +139,7 @@ random.transition <- function(current.state, theta) {
 
 }
 
-daily.data <- function(N, pi, theta.0, theta.treat,
+daily.data <- function(N, pi, theta.0, theta.treat.list,
                        T, window.length, min.p, max.p, pi.SMC){
   ## Generate the daily data for a participant given all the inputs.
   inside.fn <- function(day) {
