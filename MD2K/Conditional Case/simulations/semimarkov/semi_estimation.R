@@ -22,10 +22,20 @@ num.persons = all_numpersons[all_barbeta == barbeta]
 print(barbeta)
 print(num.persons)
 
-library(Rmpi)
-library(parallel)
-library(snow)
+# library(Rmpi)
+# library(parallel)
+# library(snow)
+library(foreach)
+library(doRNG)
 library(doParallel)
+
+getDoParWorkers()
+
+# Calculate the number of cores
+no_cores <- detectCores() - 1
+
+cl<-makeCluster(no_cores)
+registerDoParallel(cl)
 
 source('./semi_setup.R'); source("./semi_functions.R")
 
@@ -46,7 +56,7 @@ Delta = window.length
 
 
 set.seed("231310")
-All.studies = foreach(k=1:1000, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dorng%
+All.studies = foreach(k=1:20, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dorng%
   estimation.simulation(num.persons, N, pi.simple, theta.0, theta.treat.list,
                         T, window.length, min.p, max.p, pi.SMC)
 
@@ -56,5 +66,4 @@ print(c(barbeta, mean(All.studies)))
 
 saveRDS(power, file = paste("power_",barbeta,".rds", sep = ""))
 
-mpi.close.Rslaves()
-mpi.quit()
+stopImplicitCluster()

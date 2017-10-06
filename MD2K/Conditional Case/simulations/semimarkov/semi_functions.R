@@ -2,7 +2,7 @@
 require(foreach); require(TTR); require(zoo); require(expm); require(doRNG)
 
 ### Simulation functions
-rand.probs <- function(X.t, H.t, T, N, pi, lambda, min.p, max.p) {
+rand.probs <- function(current.X.t, H.t, T, N, pi, lambda, min.p, max.p) {
   ## Calculate randomization probabilities given pi, x.t, lambda,
   ## T, and N
 
@@ -10,14 +10,14 @@ rand.probs <- function(X.t, H.t, T, N, pi, lambda, min.p, max.p) {
   remaining.time = T-(max(power)+1)
   if(remaining.time < 0) {
     true.rem.time = 0
-  } else if(remaining.time - N[X.t]*60 < 60) {
+  } else if(remaining.time - N[current.X.t]*60 < 60) {
     true.rem.time = remaining.time*pi[X.t]
-  } else if(remaining.time - N[X.t]*60 < 120) {
-    true.rem.time = (remaining.time-60)*pi[X.t]
+  } else if(remaining.time - N[current.X.t]*60 < 120) {
+    true.rem.time = (remaining.time-60)*pi[current.X.t]
   } else {
-    true.rem.time = (remaining.time - 120)*pi[X.t]
+    true.rem.time = (remaining.time - 120)*pi[current.X.t]
   }
-  rho.t = max(min((N[X.t] - sum(((1-lambda^power)*H.t$rho + lambda^power*H.t$A)*(H.t$X == X.t & H.t$I == 1)))/ (1 + true.rem.time),max.p),min.p)
+  rho.t = max(min((N[current.X.t] - sum(((1-lambda^power)*H.t$rho + lambda^power*H.t$A)*(H.t$X == current.X.t & H.t$I == 1)))/ (1 + true.rem.time),max.p),min.p)
   return(rho.t)
 }
 
@@ -288,6 +288,7 @@ estimation.simulation <- function(num.persons, N, pi, theta.0, theta.treat.list,
   alpha.0 = 0.05; p = 6; q = 6;
 
   multiple = p*(num.persons-q-1)/(num.persons-p-q)
+  # print(output>multiple*qf((1-alpha.0), df1 = p, df2 = num.persons - p - q))
 
   return (output>multiple*qf((1-alpha.0), df1 = p, df2 = num.persons - p - q))
 }
