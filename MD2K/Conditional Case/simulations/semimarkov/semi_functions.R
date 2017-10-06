@@ -11,7 +11,7 @@ rand.probs <- function(current.X.t, H.t, T, N, pi, lambda, min.p, max.p) {
   if(remaining.time < 0) {
     true.rem.time = 0
   } else if(remaining.time - N[current.X.t]*60 < 60) {
-    true.rem.time = remaining.time*pi[X.t]
+    true.rem.time = remaining.time*pi[current.X.t]
   } else if(remaining.time - N[current.X.t]*60 < 120) {
     true.rem.time = (remaining.time-60)*pi[current.X.t]
   } else {
@@ -288,7 +288,7 @@ estimation.simulation <- function(num.persons, N, pi, theta.0, theta.treat.list,
   alpha.0 = 0.05; p = 6; q = 6;
 
   multiple = p*(num.persons-q-1)/(num.persons-p-q)
-  # print(output>multiple*qf((1-alpha.0), df1 = p, df2 = num.persons - p - q))
+  print(output>multiple*qf((1-alpha.0), df1 = p, df2 = num.persons - p - q))
 
   return (output>multiple*qf((1-alpha.0), df1 = p, df2 = num.persons - p - q))
 }
