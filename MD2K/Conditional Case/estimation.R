@@ -14,6 +14,8 @@ if(length(args)==0){
   barbeta = as.numeric(args[[1]])
 }
 
+barbeta
+
 source('./setup.R'); source("./functions.R")
 
 ss = power = 0.0
@@ -48,7 +50,7 @@ samp.size.const = beta%*%solve(Sigma, beta)
 
 initial.N = sample.size(samp.size.const,p = 6,q = 6)
 
-print(paste("Initial N =",initial.N))
+print(paste('Initial N =',initial.N))
 
 High.N.current = High.N.old = round(initial.N*1.15,0)
 Mid.N.current = Mid.N.old = initial.N

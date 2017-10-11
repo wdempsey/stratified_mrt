@@ -1,10 +1,10 @@
 #!/bin/bash
 
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=20
+#SBATCH --ntasks-per-node=40
 #SBATCH -p murphy
 #SBATCH --mem-per-cpu=4000
-#SBATCH -t 0-6:00 # Running time of 2 hours
+#SBATCH -t 1-00:00              # Runtime in D-HH:MM
 
 # --ntasks-per-node will be used in doParallel.R to specify the number of 
 # cores to use on the machine. 

@@ -250,7 +250,7 @@ estimation.simulation <- function(num.persons, N, pi, P.0, P.treat.list, T, wind
 
     multiple = p*(num.persons-q-1)/(num.persons-p-q)
     
-    print(output>multiple*qf((1-alpha.0), df1 = p, df2 = num.persons - p - q))
+    # print(output>multiple*qf((1-alpha.0), df1 = p, df2 = num.persons - p - q))
 
   return (output>multiple*qf((1-alpha.0), df1 = p, df2 = num.persons - p - q))
 }
