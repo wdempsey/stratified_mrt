@@ -4,8 +4,8 @@ for BARBETA in 0.020 0.025 0.030; do
     echo "${BARBETA}"
     export BARBETA
     #
-    sbatch -o SMCsim_${BARBETA}.stdout.txt \
-	   -e SMCsim_${BARBETA}.stdout.txt \
+    sbatch -o MCsim_${BARBETA}.stdout.txt \
+	   -e MCsim_${BARBETA}.stdout.txt \
            --job-name=my_analysis_${BARBETA} \
 	   simsloop.sbatch
     #

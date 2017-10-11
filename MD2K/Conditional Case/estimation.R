@@ -16,7 +16,7 @@ if(length(args)==0){
 
 source('./setup.R'); source("./functions.R")
 
-ss = power = vector(length = length(bar.beta.set))
+ss = power = 0.0
 max.value = 0.0
 
 ## Treatment vector
