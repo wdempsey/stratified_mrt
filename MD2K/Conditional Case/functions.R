@@ -72,15 +72,15 @@ daily.sim <- function(N, pi, P.0, P.treat, T, window.length, min.p, max.p) {
         H.t = list("X"=X.t[1:t],"A" = A.t[1:t], "I" = I.t[1:t], "rho" =rho.t[1:t])
         t = t+1
     } else {
-        I.t[t:(t+window.length-1)] = 0
-        rho.t[t:(t+window.length-1)] = 0
-        A.t[t:(t+window.length-1)] = 0
-        for(t.prime in t:(t+window.length-1)){
+        I.t[t:(t+window.length)] = 0
+        rho.t[t:(t+window.length)] = 0
+        A.t[t:(t+window.length)] = 0
+        for(t.prime in t:(t+window.length)){
             X.t[t.prime] = sample(1:nrow(P.0), size = 1, prob = P.treat[X.t[t.prime-1],])
         }
         H.t = list("X"=X.t[1:(t+window.length-1)],"A" = A.t[1:(t+window.length-1)],
                    "I" = I.t[1:(t+window.length-1)], "rho" =rho.t[1:(t+window.length-1)])
-        t = t+window.length
+        t = t+window.length+1
     }
   }
   return(H.t)

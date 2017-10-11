@@ -35,6 +35,8 @@ for(day in 1:num.days) {
   P.treat.list[[day]] = calculateP(temp$par)
 }
 
+max.value
+
 ## Calculate Sample Size
 num.iters.ss = 500
 Sigma.params = ss.parameters(num.iters.ss, N, pi, P, P.treat.list, T, window.length, min.p, max.p)
@@ -51,6 +53,7 @@ samp.size.const = beta%*%solve(Sigma, beta)
 initial.N = sample.size(samp.size.const,p = 6,q = 6)
 
 print(paste('Initial N =',initial.N))
+initial.N
 
 High.N.current = High.N.old = round(initial.N*1.15,0)
 Mid.N.current = Mid.N.old = initial.N
@@ -59,7 +62,6 @@ Low.N.current = Low.N.old = round(initial.N*0.85,0)
 which.run = rep(TRUE, 3); power.old = power.current = rep(0,3)
 total.evals = 0
 num.old = c(Low.N.old,Mid.N.old,High.N.old)
-
 
 library(doParallel)
 library(doRNG)

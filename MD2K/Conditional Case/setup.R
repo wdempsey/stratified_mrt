@@ -48,14 +48,14 @@ init.inputs = c(P[1,1],P[3,3],P[3,4]/(1-P[3,3]), P[4,4], P[6,6], P[6,4]/(1-P[6,6
 
 ## Test that the choice of N leads to approximately 1.5 interventions per day 
 ## given stressed and not stressed under the null model.
-set.seed("81740")
-num.iters = 1000
-res.nonstress = res.stress = vector(length = num.iters)
-for (i in 1:num.iters) {
-   test = daily.sim(N,pi,P,P,T,window.length,min.p,max.p)
-   res.nonstress[i] = sum(test$A[test$X == 2])
-   res.stress[i] = sum(test$A[test$X == 5])
-}
-
-mean(res.nonstress)
-mean(res.stress)
+# set.seed("81740")
+# num.iters = 1000
+# res.nonstress = res.stress = vector(length = num.iters)
+# for (i in 1:num.iters) {
+#    test = daily.sim(N,pi,P,P,T,window.length,min.p,max.p)
+#    res.nonstress[i] = sum(test$A[test$X == 2])
+#    res.stress[i] = sum(test$A[test$X == 5])
+# }
+# 
+# mean(res.nonstress)
+# mean(res.stress)
