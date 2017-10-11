@@ -4,34 +4,17 @@ library(plyr)
 ##### load data #####
 
 dat <- read.csv("./data/stress_episodes.csv")
-prob.dat <- read.csv("./data/stress_probabilities.csv")
-lapse_timestamps <- read.csv("./data/lapse_timestamps.csv")
-non_lapsers <- read.csv("./data/non_lapsers.csv")
 
 ### Timestamps for prob.dat ###
-
-prob.dat$timestamp = as.POSIXct(prob.dat$Unix.Timestamp/1000, origin = "1970-01-01", "US/Central");
-
 dat$st.time = as.POSIXct(dat$From.Timestamp.Unix./1000, origin = "1970-01-01", "US/Central");
 dat$end.time = as.POSIXct(dat$To.Timestamp.Unix./1000, origin = "1970-01-01", "US/Central");
 dat$peak.time = as.POSIXct(dat$Peak.Timestamp.Unix./1000, origin = "1970-01-01", "US/Central");
 
-
-#### non_lapsers #####
-
-lapse_timestamps <- subset(lapse_timestamps, Lapse.timestamp.Unix.!=-1) # remove the ones with no lapse timestamp
-colnames(lapse_timestamps)[2] <- "relapseSession"
-lapse_timestamps$relapse.time <- as.POSIXct(lapse_timestamps$Lapse.timestamp.Unix./1000, origin = "1970-01-01", "US/Central");
-missing.data.id <- lapse_timestamps$Participant[!(lapse_timestamps$Participant %in% dat$Participant)]
-lapse_timestamps <- subset(lapse_timestamps, !(Participant %in% missing.data.id))
-non_lapsers$relapse <- 0
-
 #### stress data cleaning####
-
 wd.log <- dat;
 
 # remove participants without relapse info
-wd.log <- subset(wd.log, Participant %in% c(non_lapsers$Participant, lapse_timestamps$Participant))
+# wd.log <- subset(wd.log, Participant %in% c(non_lapsers$Participant, lapse_timestamps$Participant))
 
 # remove the episode with 0 duration in the begining of the day
 wd.log <- subset(wd.log, end.time != st.time);
@@ -44,22 +27,9 @@ wd.log$duration <- difftime(wd.log$end.time,wd.log$st.time, units = c("mins"));
 wd.log$pre.pk.duration <- difftime(wd.log$peak.time,wd.log$st.time, units = c("mins"));
 wd.log$post.pk.duration <- difftime(wd.log$end.time,wd.log$peak.time, units = c("mins"));
 
-# Input 2 in Section 6.1.1
-# For each episode type, the average episode lengt
-mean(wd.log$duration[wd.log$stress == 1])  ## Episode = Not Stress
-mean(wd.log$duration[wd.log$stress == 2])  ## Epsidoe = Stress
-
-## Merge the two datasets
-wd.log <- merge(wd.log, non_lapsers, by = c("Participant"), all=T)
-wd.log <- merge(wd.log, lapse_timestamps, by=c("Participant"), all = T)
-
 ## remove pre-quit data
 wd.log <- subset(wd.log, Session >10);
 wd.log$Session <- wd.log$Session - 10;
-wd.log$relapseSession <- wd.log$relapseSession - 10;
-
-colnames(wd.log)[2] <- "day"
-colnames(wd.log)[16] <- "relapse.day"
 
 # no unsure class
 stopifnot(all(wd.log$Class.1.NO.2.Unsure.3.YES.4.Unknown.!=2))
@@ -72,64 +42,61 @@ colnames(wd.log)[7] <- "prop.missing"
 colnames(wd.log)[8] <- "stress"
 wd.log$stress <- with(wd.log, (stress==1) + 2*(stress==3) + 3*(stress==4)) # Not Stress = 1, Stress = 2, Unsure = 3
 
-# take the needed columns
-wd.log <- subset(wd.log, select = c(Participant, day, stress.density, prop.missing, stress, st.time, end.time, duration, relapse.day, relapse, relapse.time, peak.time, pre.pk.duration, post.pk.duration))
-wd.log$relapse <- with(wd.log, is.na(relapse) * 1)
-wd.log$relapse.day <- with(wd.log, ifelse(is.na(relapse.day), 100, relapse.day))
+# only keep needed columns
+wd.log <- subset(wd.log, select = c(Participant, Session , stress.density, prop.missing, stress, st.time, end.time, duration, peak.time, pre.pk.duration, post.pk.duration))
 
 # remove the insane unavailable
 wd.log$st.hour <- as.numeric(format(wd.log$st.time, "%H"))
 wd.log$end.hour <- as.numeric(format(wd.log$end.time, "%H"))
 
-#stopifnot(log$stress[order(log$duration, decreasing = TRUE)[1:26]]==3)
-index <- (wd.log$st.hour[order(wd.log$duration, decreasing = TRUE)[1:30]] < 6 | wd.log$st.hour[order(wd.log$duration, decreasing = TRUE)[1:30]] > 20)
-wd.log <- wd.log[-order(wd.log$duration, decreasing = TRUE)[1:30][index], ]
-wd.log <- wd.log[order(wd.log$Participant, wd.log$day, wd.log$st.time), ]
+# index <- (wd.log$st.hour[order(wd.log$duration, decreasing = TRUE)[1:30]] < 6 | wd.log$st.hour[order(wd.log$duration, decreasing = TRUE)[1:30]] > 20)
+# wd.log <- wd.log[-order(wd.log$duration, decreasing = TRUE)[1:30][index], ]
+wd.log <- wd.log[order(wd.log$Participant, wd.log$Session, wd.log$st.time), ]
 
-
-# redefine day by using 4am cutting point
-define.day = function(log){
-  log2 <- NULL
-  for(id in unique(log$Participant)){
-    
-    dat <- subset(log, Participant == id)
-    st.date <- as.POSIXct(format(dat$st.time[1], format="%Y/%m/%d"),  origin = "1970-01-01", "US/Central") + hours(4)
-    index.date <- st.date + days(1) 
-    
-    temp.day <- as.numeric(with(dat, (end.time <= index.date)*1 + (end.time > index.date)* (1+ceiling(difftime(end.time, index.date, units = "hours")/24))))
-    temp.day <- mapvalues(temp.day, sort(unique(temp.day)), 1:length(unique(temp.day)))
-    
-    dat$day <- temp.day
-    
-    #print(unique(dat$day))
-    log2 <- rbind(log2, dat)
-  }
-  log2 <- log2[order(log2$Participant, log2$day, log2$st.time), ]
-  return(log2)
-}
-wd.log <- define.day(wd.log)
-
-# one user that never sleeps
-wd.log <- subset(wd.log, Participant != 6032)
-
-# redefine relapse day using the above cutting
-
-define.lapseday = function(log){
-  
-  log2 <- NULL
-  for(id in unique(log$Participant)){
-    
-    dat <- subset(log, Participant == id)
-    
-    if(is.na(dat$relapse.time[1])==F){
-      dat$relapse.day <- dat$day[which.min(abs(as.numeric(difftime(dat$end.time, dat$relapse.time, units = "mins"))))]
-    }
-    
-    log2 <- rbind(log2, dat)
-  }
-  return(log2)
-}
-wd.log = define.lapseday(wd.log)
+# 
+# # redefine day by using 4am cutting point
+# define.day = function(log){
+#   log2 <- NULL
+#   for(id in unique(log$Participant)){
+#     
+#     dat <- subset(log, Participant == id)
+#     st.date <- as.POSIXct(format(dat$st.time[1], format="%Y/%m/%d"),  origin = "1970-01-01", "US/Central") + hours(4)
+#     index.date <- st.date + days(1) 
+#     
+#     temp.day <- as.numeric(with(dat, (end.time <= index.date)*1 + (end.time > index.date)* (1+ceiling(difftime(end.time, index.date, units = "hours")/24))))
+#     temp.day <- mapvalues(temp.day, sort(unique(temp.day)), 1:length(unique(temp.day)))
+#     
+#     dat$day <- temp.day
+#     
+#     #print(unique(dat$day))
+#     log2 <- rbind(log2, dat)
+#   }
+#   log2 <- log2[order(log2$Participant, log2$day, log2$st.time), ]
+#   return(log2)
+# }
+# wd.log <- define.day(wd.log)
+# 
+# # one user that never sleeps
+# wd.log <- subset(wd.log, Participant != 6032)
+# 
+# # redefine relapse day using the above cutting
+# 
+# define.lapseday = function(log){
+#   
+#   log2 <- NULL
+#   for(id in unique(log$Participant)){
+#     
+#     dat <- subset(log, Participant == id)
+#     
+#     if(is.na(dat$relapse.time[1])==F){
+#       dat$relapse.day <- dat$day[which.min(abs(as.numeric(difftime(dat$end.time, dat$relapse.time, units = "mins"))))]
+#     }
+#     
+#     log2 <- rbind(log2, dat)
+#   }
+#   return(log2)
+# }
+# wd.log = define.lapseday(wd.log)
 
 ### Discovering the classification rule from the stress density
 
@@ -142,12 +109,16 @@ summary(wd.log$prop.missing[wd.log$stress == 3])
 summary(wd.log$stress.density[(wd.log$prop.missing < 0.5) & (wd.log$stress == 1)])
 summary(wd.log$stress.density[(wd.log$prop.missing < 0.5) & (wd.log$stress == 2)])
 
+# Input 2 in Section 6.1.1
+# For each episode type, the average episode length
+length(unique(wd.log$Participant))
+mean(wd.log$duration[wd.log$stress == 1])  ## Episode = Not Stress
+mean(wd.log$duration[wd.log$stress == 2])  ## Epsidoe = Stress
 
 ### Models for pre-pk, stress density, and then post-pk.  Each is an auto-regressive model where we use
 ### the past variables.  Based on the fitting of the models each ends up being maximum lag 2 or 1
 
 # First we must construct robust summaries
-
 require(foreign)
 require(sandwich)
 
@@ -195,13 +166,11 @@ auc.df <-
 ns.to.ns = sum(auc.df$stress[auc.df$lag1.stress == 1] == 1, na.rm = TRUE) # Number of observed transitions from "Not Stress" to "Not Stress"
 ns.to.s = sum(auc.df$stress[auc.df$lag1.stress == 1] == 2, na.rm = TRUE) # Number of observed transitions from "Not Stress" to "Stress"
 
-ns.to.ns/(ns.to.ns + ns.to.s)
 ns.to.s/(ns.to.ns + ns.to.s)
 
 s.to.ns = sum(auc.df$stress[auc.df$lag1.stress == 2] == 1, na.rm = TRUE) # Number of observed transitions from "Stress" to "Not Stress"
 s.to.s = sum(auc.df$stress[auc.df$lag1.stress == 2] == 2, na.rm = TRUE) # Number of observed transitions from "Stress" to "Stress"
 
-s.to.ns/(s.to.ns + s.to.s)
 s.to.s/(s.to.ns + s.to.s)
 
 ### Stats on degree of missingness,
@@ -263,6 +232,15 @@ model.lag2 <- survreg(Surv(as.numeric(pre.pk.duration), status) ~ as.factor(stre
 
 summary(model.lag2)
 
+complete.model.lag2 <- survreg(Surv(as.numeric(pre.pk.duration), status) ~ as.factor(stress)*as.factor(lag1.stress)*
+                                 as.factor(lag2.stress) + as.numeric(lag1.postpk),
+                               data = subset(auc.df, (stress != 3) & (lag1.stress != 3) & 
+                                               (lag2.stress != 3) ), dist = "weibull", robust = TRUE)
+
+test= summary(complete.model.lag2)$llik
+
+2*(complete.model.lag2$loglik[2] - model.lag2$loglik[2]) > qchisq(0.95, df = 4)
+
 model.lag3 <- survreg(Surv(as.numeric(pre.pk.duration), status) ~ as.factor(stress) + as.factor(lag1.stress) +
                         as.factor(lag2.stress) + as.factor(lag3.stress),
                       data = subset(auc.df, (stress != 3) & (lag1.stress != 3) & 
@@ -270,14 +248,6 @@ model.lag3 <- survreg(Surv(as.numeric(pre.pk.duration), status) ~ as.factor(stre
 
 summary(model.lag3)
 
-complete.model.lag3 <- survreg(Surv(as.numeric(pre.pk.duration), status) ~ as.factor(stress)*as.factor(lag1.stress)*
-                        as.factor(lag2.stress)*as.factor(lag3.stress),
-                      data = subset(auc.df, (stress != 3) & (lag1.stress != 3) & 
-                                      (lag2.stress != 3) & (lag3.stress != 3) ), dist = "weibull", robust = TRUE)
-
-test= summary(complete.model.lag3)$llik
-
-2*(complete.model.lag3$loglik[2] - model.lag3$loglik[2]) > qchisq(0.95, df = 15 - 4)
 
 model.lag4 <- survreg(Surv(as.numeric(pre.pk.duration), status) ~ as.factor(stress) + as.factor(lag1.stress) +
                         as.factor(lag2.stress) + as.factor(lag3.stress) + as.factor(lag4.stress),
@@ -286,11 +256,10 @@ model.lag4 <- survreg(Surv(as.numeric(pre.pk.duration), status) ~ as.factor(stre
 
 summary(model.lag4)
 
-# So the model is lag3 with lag1.postpk (length of prior window) # 
-saveRDS(model.lag3,"prepk_model.rds")
+# So the model is lag2 with lag1.postpk (length of prior window) # 
+saveRDS(model.lag2,"prepk_model.rds")
 
 ## Fit the post.pk model.
-
 postpk.baseline.model <- survreg(Surv(as.numeric(post.pk.duration), status) ~ as.factor(stress), 
                           data = subset(auc.df, (post.pk.duration > 0) & (stress != 3) ), dist = "weibull", robust = TRUE)
 
@@ -314,6 +283,15 @@ postpk.model.lag3 <- survreg(Surv(as.numeric(post.pk.duration), status) ~ as.fac
 
 summary(postpk.model.lag3)
 
+complete.postpk.model.lag3 <- survreg(Surv(as.numeric(post.pk.duration), status) ~ as.factor(stress)*as.factor(lag1.stress)*
+                                        as.factor(lag2.stress)*as.factor(lag3.stress),
+                             data = subset(auc.df, (post.pk.duration > 0) & (stress != 3) & (lag1.stress != 3) 
+                                           & (lag2.stress != 3) & (lag3.stress != 3)), dist = "weibull", robust = TRUE)
+
+summary(complete.postpk.model.lag3)
+
+2*(complete.postpk.model.lag3$loglik[2] - postpk.model.lag3$loglik[2]) > qchisq(0.95, df = 11)
+
 postpk.model.lag4 <- survreg(Surv(as.numeric(post.pk.duration), status) ~ as.factor(stress) + as.factor(lag1.stress) +
                                as.factor(lag2.stress) + as.factor(lag3.stress) + as.factor(lag4.stress),
                              data = subset(auc.df, (post.pk.duration > 0) & (stress != 3) & (lag1.stress != 3) 
@@ -322,6 +300,7 @@ postpk.model.lag4 <- survreg(Surv(as.numeric(post.pk.duration), status) ~ as.fac
 summary(postpk.model.lag4)
 
 
+# So the model is lag3 with lag1.postpk (length of prior window) # 
 saveRDS(postpk.model.lag3,"postpk_model.rds")
 
 
