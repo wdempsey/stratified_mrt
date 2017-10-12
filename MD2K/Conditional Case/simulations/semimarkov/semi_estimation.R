@@ -56,7 +56,8 @@ for (temp.day in 1:num.days) {
 }
 
 Delta = window.length
-
+pi = pi.simple
+num.persons = 17
 
 set.seed("231310")
 All.studies = foreach(k=1:3, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dorng%

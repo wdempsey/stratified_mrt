@@ -25,4 +25,4 @@ module load R/3.2.0-fasrc01
 
 # Run program
 # R CMD BATCH --no-save --no-restore '--args barbeta=b day=d' semi_treatment_args.R
-srun Rscript semi_estimation.R ${BARBETA} > output_${BARBETA}.Rout
+Rscript semi_estimation.R ${BARBETA} > output_${BARBETA}.Rout

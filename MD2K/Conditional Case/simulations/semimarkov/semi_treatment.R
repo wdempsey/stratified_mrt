@@ -19,11 +19,6 @@ if(length(args)==0){
 print(barbeta)
 print(day)
 
-library(Rmpi)
-library(parallel)
-library(snow)
-library(doParallel)
-
 source('./semi_setup.R'); source("./semi_functions.R")
 
 Delta = window.length
