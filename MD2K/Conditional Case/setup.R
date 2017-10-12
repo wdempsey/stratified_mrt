@@ -30,7 +30,7 @@ pi = (eig.P$vectors%*%diag(c(1,rep(0,5)))%*%solve(eig.P$vectors))[1,]  # Station
 # tau = rep(0.1,2) # Expected availability in each group ("Stressed", "Not Stressed")
 
 # Randomization probability inputs
-N =  c(0,1.61,0,0,2.21,0) # Avg. number of actions per day in each group ("Stressed", "Not Stressed")
+N =  c(0,1.65,0,0,2.15,0) # Avg. number of actions per day in each group ("Stressed", "Not Stressed")
 
 lambda = 0.3 # Smoothing parameter in the randomization formula
 
@@ -48,7 +48,7 @@ init.inputs = c(P[1,1],P[3,3],P[3,4]/(1-P[3,3]), P[4,4], P[6,6], P[6,4]/(1-P[6,6
 
 ## Test that the choice of N leads to approximately 1.5 interventions per day 
 ## given stressed and not stressed under the null model.
-# set.seed("81740")
+# set.seed("231130")
 # num.iters = 1000
 # res.nonstress = res.stress = vector(length = num.iters)
 # for (i in 1:num.iters) {
