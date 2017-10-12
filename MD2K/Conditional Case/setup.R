@@ -9,8 +9,8 @@ num.days = 10 # Number of days the study will be conducted
 window.length = 60 # Window length for the calculating proximal outcome
 
 # Construct Transition Matrix given Inputs 1 and 2
-bar.W = c(0.061, 0.519)
-bar.Z = c(10.3,11.7)
+bar.W = c(0.067, 0.519)
+bar.Z = c(10.9,12.0)
 
 tilde.Z = c((bar.Z[1]-3)/2, 0,(bar.Z[1]-3)/2,
 (bar.Z[2]-3)/2, 0,(bar.Z[2]-3)/2)
