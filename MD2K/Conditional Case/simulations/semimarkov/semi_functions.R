@@ -91,9 +91,8 @@ random.holding.time <- function(current.state, theta, max.hold = 100) {
     est.shape = 1/theta$prepk.scale
     est.scale = exp(theta$prepk.coef%*%c(1,i[1]==2,i[3:5]==2))
 
-    soj.prob = (pweibull(1:max.hold+1/2, scale = est.scale, shape = est.shape) -
-                  pweibull(1:max.hold-1/2, scale = est.scale, shape = est.shape)) /
-      (1-pweibull(1/2, scale = est.scale, shape = est.shape))
+    soj.prob = pweibull(1:max.hold, scale = est.scale, shape = est.shape) -
+                    pweibull(0:(max.hold-1), scale = est.scale, shape = est.shape)
 
     return(
       sample(1:max.hold, size = 1, prob = soj.prob)
@@ -103,10 +102,9 @@ random.holding.time <- function(current.state, theta, max.hold = 100) {
     est.shape = 1/theta$postpk.scale
     est.scale = exp(theta$postpk.coef%*%c(1,i[1]==2,i[3:5]==2))
 
-    soj.prob = (pweibull(1:max.hold+1/2, scale = est.scale, shape = est.shape) -
-                  pweibull(1:max.hold-1/2, scale = est.scale, shape = est.shape)) /
-      (1-pweibull(1/2, scale = est.scale, shape = est.shape))
-
+    soj.prob = pweibull(1:max.hold, scale = est.scale, shape = est.shape)-
+                    pweibull(0:(max.hold-1), scale = est.scale, shape = est.shape)
+    
     return(
       sample(1:max.hold, size = 1, prob = soj.prob)
     )
@@ -341,10 +339,8 @@ q_ij.k <- function(i, j, k, theta) {
 
     est.shape = 1/theta$prepk.scale
     est.scale = exp(theta$prepk.coef%*%c(1,i[1]==2,i[3:5]==2))
-
-    soj.prob = (pweibull(k+1/2, scale = est.scale, shape = est.shape) -
-                  pweibull(k-1/2, scale = est.scale, shape = est.shape)) /
-      (1-pweibull(1/2, scale = est.scale, shape = est.shape))
+    
+    soj.prob = pweibull(k, scale = est.scale, shape = est.shape) - pweibull(k-1, scale = est.scale, shape = est.shape)
 
     return(soj.prob)
 
@@ -357,11 +353,8 @@ q_ij.k <- function(i, j, k, theta) {
     est.shape = 1/theta$postpk.scale
     est.scale = exp(theta$postpk.coef%*%c(1,i[1]==2,i[3:5]==2))
 
-
-    soj.prob = (pweibull(k+1/2, scale = est.scale, shape = est.shape) -
-                  pweibull(k-1/2, scale = est.scale, shape = est.shape)) /
-      (1-pweibull(1/2, scale = est.scale, shape = est.shape))
-
+    soj.prob = pweibull(k, scale = est.scale, shape = est.shape) - pweibull(k-1, scale = est.scale, shape = est.shape)
+      
     temp.trans = exp(theta$trans.coef%*%c(1,i[3:5]==2))
     prob.stress.trans = temp.trans/(1+temp.trans)
 
@@ -377,8 +370,8 @@ Q_ij.k <- function(i,j,k, theta) {
   ## sojourn time <= k given initially in
   ## state i = (X,U,L1,L2,L3)
   ## and then transitioning to state j
-
-  sum(q_ij.k(i,j,1:k,theta))
+  
+  return(sum(q_ij.k(i,j,1:k,theta)))
 
 }
 
@@ -520,13 +513,13 @@ p_ij.k <- function(i.loc, j.loc, k, states, theta, output) {
       l = as.numeric(comp.set)
       l.which.column = which(!colSums(t(states) != l ) )
       term2 = term2 + q_ij.k( i, l, 1:k, theta) %*%
-        output[l.which.column, j.loc, k:1]
+          output[l.which.column, j.loc, k:1]  
     } else {
       for (index in 1:2) {
         l = as.numeric(comp.set[,index])
         l.which.column = which(!colSums(t(states) != l ) )
-        term2 = term2 + q_ij.k( i, l, 1:k, theta) %*%
-          output[l.which.column, j.loc, k:1]
+          term2 = term2 + q_ij.k( i, l, 1:k, theta) %*%
+            output[l.which.column, j.loc, k:1]
       }
     }
     return(term1 + term2)
@@ -551,63 +544,6 @@ p_all.k <- function(Delta, theta) {
   output = array(dim = c(num.states, num.states, Delta+1))
   for (k in 0:Delta) {
     output[,,k+1] = sapply(1:num.states, int.fn, k, states,theta,output)
-  }
-
-  return(output)
-}
-
-parallel.p_ij.k <- function(state.loc, k, states, theta, output) {
-  ## Compute prob of being in state j
-  ## after k steps from i
-  ## Using past.array = old p_ij.k's
-
-  i.loc = ceiling(state.loc/nrow(states))
-  j.loc = state.loc - (i.loc - 1) * nrow(states)
-
-  i = as.numeric(states[i.loc,])
-  j = as.numeric(states[j.loc,])
-
-  if (k == 0) {
-    return(as.numeric(all(i == j)))
-  } else {
-
-    comp.set = compatible.states(i)
-
-    term1 = all(i==j) * (1- Q_i.k(i,k,theta))
-    term2 = 0
-    if (i[2] != 3) {
-      l = as.numeric(comp.set)
-      l.which.column = which(!colSums(t(states) != l ) )
-      term2 = term2 + q_ij.k( i, l, 0:(k-1), theta) %*%
-        output[l.which.column, j.loc, k:1]
-    } else {
-      for (index in 1:2) {
-        l = as.numeric(comp.set[,index])
-        l.which.column = which(!colSums(t(states) != l ) )
-        term2 = term2 + q_ij.k( i, l, 0:(k-1), theta) %*%
-          output[l.which.column, j.loc, k:1]
-      }
-    }
-    return(term1 + term2)
-  }
-}
-
-parallel.p_all.k <- function(Delta, theta) {
-  ## Compute the probability
-  ## of being in state j
-  ## after k steps from
-  ## step i for k = 1:Delta
-
-  states <- state.list()
-  num.states <- nrow(states)
-  ## Output goes from step = 0 to Delta
-  output = array(dim = c(num.states, num.states, Delta+1))
-  for (k in 0:Delta) {
-
-    output[,,k+1] = matrix( parSapply(cl = cl, 1:num.states^2, parallel.p_ij.k, k=k, states=states,
-                                      theta=theta, output = output),
-                            nrow = num.states, ncol = num.states)
-
   }
 
   return(output)
@@ -736,137 +672,4 @@ relist.thetas <- function(unlisted.thetas) {
     "trans.coef" = unlisted.thetas[13:16]
   )
   return(list.thetas)
-}
-
-
-## Computing gradient fn
-
-deriv.proximal.outcome <- function(output, theta, pi.SMC) {
-  ## Returns expected fraction of time
-  ## Stressed in next hour
-  
-  states <- state.list()
-  
-  stress.valid.states = as.logical(states[,1] == 2)
-  
-  fully.conditional.outcome = rowSums(output[,stress.valid.states,2:dim(output)[3]])/60
-  
-  # pi.SMC = limit.dist.SMC(theta)
-  
-  return(c(
-    sum(fully.conditional.outcome[!stress.valid.states]*
-          pi.SMC[!stress.valid.states]/
-          sum(pi.SMC[!stress.valid.states]))
-    ,
-    sum(fully.conditional.outcome[stress.valid.states]*
-          pi.SMC[stress.valid.states]/
-          sum(pi.SMC[stress.valid.states]))
-  ))
-  
-}
-
-
-
-deriv.p_ij.k <- function(i.loc, j.loc, k, states, theta, output) {
-  ## Compute prob of being in state j
-  ## after k steps from i
-  ## Using past.array = old p_ij.k's
-  
-  i = as.numeric(states[i.loc,])
-  j = as.numeric(states[j.loc,])
-  
-  if (k == 0) {
-    return(as.numeric(all(i == j)))
-  } else {
-    
-    comp.set = compatible.states(i)
-    
-    term1 = all(i==j) * (1- Q_i.k(i,k,theta))
-    term2 = 0
-    if (i[2] != 3) {
-      l = as.numeric(comp.set)
-      l.which.column = which(!colSums(t(states) != l ) )
-      term2 = term2 + q_ij.k( i, l, 0:(k-1), theta) %*%
-        output[l.which.column, j.loc, k:1]
-    } else {
-      for (index in 1:2) {
-        l = as.numeric(comp.set[,index])
-        l.which.column = which(!colSums(t(states) != l ) )
-        term2 = term2 + q_ij.k( i, l, 0:(k-1), theta) %*%
-          output[l.which.column, j.loc, k:1]
-      }
-    }
-    return(term1 + term2)
-  }
-  
-}
-
-deriv.int.fn <- function(j.loc, k, states, theta, output) {
-  i.s = 1:nrow(states)
-  return(sapply(i.s, p_ij.k, j.loc, k, states, theta, output))
-}
-
-deriv.p_all.k <- function(Delta, theta) {
-  ## Compute the probability
-  ## of being in state j
-  ## after k steps from
-  ## step i for k = 1:Delta
-  
-  states <- state.list()
-  num.states <- nrow(states)
-  ## Output goes from step = 0 to Delta
-  output = array(dim = c(num.states, num.states, Delta+1))
-  for (k in 0:Delta) {
-    output[,,k+1] = sapply(1:num.states, deriv.int.fn, k, states,theta,output)
-  }
-  
-  return(output)
-}
-
-deriv.q_ij.k <- function(i, j, k, theta) {
-  ## Function that returns probability of
-  ## sojourn time = k given initially in
-  ## state i = (X,U,L1,L2,L3)
-  ## and then transitioning to state j
-  
-  comp.set = compatible.states(i)
-  
-  notcompatible = all(!(!colSums(comp.set != j ) ))
-  
-  if(notcompatible) {
-    ## j is not compatible with i
-    return( rep(0, length(k)) )
-  } else if (i[2] == 1) {
-    
-    est.shape = 1/theta$prepk.scale
-    est.scale = exp(theta$prepk.coef%*%c(1,i[1]==2,i[3:5]==2))
-    
-    soj.prob = (pweibull(k+1/2, scale = est.scale, shape = est.shape) -
-                  pweibull(k-1/2, scale = est.scale, shape = est.shape)) /
-      (1-pweibull(1/2, scale = est.scale, shape = est.shape))
-    
-    return(soj.prob)
-    
-  } else if (i[2] == 2) {
-    
-    return( as.numeric(k == 1) )
-    
-  } else if (i[2] == 3) {
-    
-    est.shape = 1/theta$postpk.scale
-    est.scale = exp(theta$postpk.coef%*%c(1,i[1]==2,i[3:5]==2))
-    
-    
-    soj.prob = (pweibull(k+1/2, scale = est.scale, shape = est.shape) -
-                  pweibull(k-1/2, scale = est.scale, shape = est.shape)) /
-      (1-pweibull(1/2, scale = est.scale, shape = est.shape))
-    
-    temp.trans = exp(theta$trans.coef%*%c(1,i[3:5]==2))
-    prob.stress.trans = temp.trans/(1+temp.trans)
-    
-    prob.trans = prob.stress.trans*(j[1]==2) + (1-prob.stress.trans)*(j[1]==1)
-    
-    return(soj.prob * prob.trans)
-  }
-  
 }
