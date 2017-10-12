@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=40
+#SBATCH --ntasks-per-node=30
 #SBATCH -p murphy
 #SBATCH --mem-per-cpu=4000
 #SBATCH -t 1-00:00              # Runtime in D-HH:MM
