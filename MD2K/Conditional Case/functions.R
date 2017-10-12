@@ -273,7 +273,7 @@ ss.daily.data <- function(N, pi, P.0, P.treat.list, T, window.length, min.p, max
     prob.gamma = rollapply(1-H.t$rho, window.length, FUN = prod); prob.gamma = prob.gamma[-1]
     prob.nu = rollapply((H.t$A==0),window.length, FUN = prod); prob.nu = prob.nu[-1]
     psi.t = prob.nu/prob.gamma
-    data = cbind(day,1:(T+window.length),H.t$A,H.t$X, H.t$rho,H.t$I, c(psi.t,rep(0,window.length)))
+    data = cbind(day,1:length(H.t$A),H.t$A,H.t$X, H.t$rho,H.t$I, c(psi.t,rep(0,window.length)))
     Q = W = 0
     hat.sigmasq = list(); hat.sigmasq[[1]] = hat.sigmasq[[2]] = rep(0,0)
     hat.tildepr = hat.sigmasq

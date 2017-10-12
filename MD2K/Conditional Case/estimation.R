@@ -38,20 +38,25 @@ for(day in 1:num.days) {
 max.value
 
 ## Calculate Sample Size
-num.iters.ss = 500
-Sigma.params = ss.parameters(num.iters.ss, N, pi, P, P.treat.list, T, window.length, min.p, max.p)
-Q = Sigma.params[1:6,]; W = Sigma.params[7:12,]
+# num.iters.ss = 500
+# Sigma.params = ss.parameters(num.iters.ss, N, pi, P, P.treat.list, T, window.length, min.p, max.p)
+# Q = Sigma.params[1:6,]; W = Sigma.params[7:12,]
+# 
+# Sigma = solve(Q,W)%*%solve(Q)
+# 
+# b1 =  d # Unstandardized effect sizes
+# b2 = d # Unstandardized effect sizes
+# beta = c(b1,b2)
+# 
+# samp.size.const = beta%*%solve(Sigma, beta)
+# 
+# initial.N = sample.size(samp.size.const,p = 6,q = 6)
 
-Sigma = solve(Q,W)%*%solve(Q)
+# Ran so many times no longer need random initialization
+bar.beta.set = c(0.030, 0.025, 0.020)
+initial.Ns = c(40, 65, 115)
 
-b1 =  d # Unstandardized effect sizes
-b2 = d # Unstandardized effect sizes
-beta = c(b1,b2)
-
-samp.size.const = beta%*%solve(Sigma, beta)
-
-initial.N = sample.size(samp.size.const,p = 6,q = 6)
-
+initial.N = initial.Ns[bar.beta.set == barbeta]
 print(paste('Initial N =',initial.N))
 initial.N
 
