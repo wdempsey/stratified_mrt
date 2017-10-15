@@ -168,9 +168,6 @@ power = final.output[2]
 
 print(max.value)
 
-save(ss,file="ss.RData")
-save(power,file="power.RData")
-
 saveRDS(ss, file = paste("ss_",barbeta,".rds", sep = ""))
 saveRDS(power, file = paste("power_",barbeta,".rds", sep = ""))
 

@@ -30,7 +30,7 @@ pi = (eig.P$vectors%*%diag(c(1,rep(0,5)))%*%solve(eig.P$vectors))[1,]  # Station
 # tau = rep(0.1,2) # Expected availability in each group ("Stressed", "Not Stressed")
 
 # Randomization probability inputs
-N =  c(0,1.65,0,0,2.15,0) # Avg. number of actions per day in each group ("Stressed", "Not Stressed")
+N =  c(0,1.65,0,0,2.15,0) # Avg. number of actions per day in each group ("Not Stressed", "Stressed")
 
 lambda = 0.3 # Smoothing parameter in the randomization formula
 
