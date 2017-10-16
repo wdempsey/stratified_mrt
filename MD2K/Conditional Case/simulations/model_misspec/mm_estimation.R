@@ -1,62 +1,68 @@
-library(Rmpi)
-library(parallel)
-library(snow)
-library(doParallel)
+#First read in the arguments listed at the command line
+args=(commandArgs(TRUE))
 
-# reads the list of nodes which have been allocated
-# by the cluster queue manager
-nodefile <- Sys.getenv("PBS_NODEFILE")
-hostlist <- read.table(nodefile, skip=1, header=FALSE)
+print(args)
 
-ncpu <- mpi.universe.size() - 1
+##args is now a list of character vectors
+## First check to see if arguments are passed.
+## Then cycle through each element of the list and evaluate the expressions.
+if(length(args)==0){
+  print("No arguments supplied.")
+  ##supply default values
+  barbeta = 0.025
+}else{
+  barbeta = as.numeric(args[[1]])
+}
 
-# builds a socket cluster using these nodes
-cl <- makeCluster(ncpu, type='MPI')
-
-print(ncpu)
-
-registerDoParallel(cl)
-
-library(doRNG)
+barbeta
 
 source('./mm_setup.R'); source("./mm_functions.R")
 
 bar.beta.set = c(0.02,0.025,0.03)
-ss = c(118, 66, 41)
+ss.set = c(127, 67, 50)
 
-power = matrix(nrow = length(bar.beta.set), ncol = 16)
+## Number of persons given bar.beta.set[i]
+num.persons = ss.set[bar.beta.set == barbeta]
+
+power = 0.0
 max.value = 0.0
 
-for(i in 1:length(bar.beta.set)) {
-    for (j in 1:16) {
-        ## Number of persons given bar.beta.set[i]
-        num.persons = ss[i]
-        ## Baseline transition matrix
-        P = P.list[[j]]
-        pi = pi.list[[j]]
+library(doParallel)
+library(doRNG)
 
-        ## Treatment vector
-        Z.t = Vectorize(cov.gen)((1:num.days) * T)
-        d = find.d(bar.beta.set[i],init.d,max.d,Z.t,num.days)
-        daily.treat = -t(Z.t)%*%d
+cl = Sys.getenv("SLURM_NTASKS_PER_NODE")
+cl
 
-        P.treat.list = list()
+registerDoParallel(cores = (cl))
 
-        for(day in 1:num.days) {
-            effect = rep(daily.treat[day],2)
-            temp = optim(init.inputs,effect.gap(P, window.length, effect))
-            max.value = max(max.value, temp$value)
-            P.treat.list[[day]] = calculateP(temp$par)
-        }
+# Shows the number of Parallel Workers to be used
+getDoParWorkers()
 
-        set.seed("231310")
-        All.studies = foreach(k=1:1000, .combine = c,.packages = c('foreach','TTR','expm','zoo')) %dorng%
-            estimation.simulation(num.persons, N, pi, P, P.treat.list, T, window.length, min.p, max.p)
-
-        power[i,j] = mean(All.studies)
-
-        print(c(bar.beta.set[i], j, mean(All.studies)))
-    }
+for (j in 1:16) {
+  ## Baseline transition matrix
+  P = P.list[[j]]
+  pi = pi.list[[j]]
+  
+  ## Treatment vector
+  Z.t = Vectorize(cov.gen)((1:num.days) * T)
+  d = find.d(bar.beta.set[i],init.d,max.d,Z.t,num.days)
+  daily.treat = -t(Z.t)%*%d
+  
+  P.treat.list = list()
+  
+  for(day in 1:num.days) {
+    effect = rep(daily.treat[day],2)
+    temp = optim(init.inputs,effect.gap(P, window.length, effect))
+    max.value = max(max.value, temp$value)
+    P.treat.list[[day]] = calculateP(temp$par)
+  }
+  
+  All.studies = foreach(k=1:1000, .combine = c, .options.RNG=231310) %dorng%
+    estimation.simulation(num.persons, N, pi, P, P.treat.list, T, window.length, min.p, max.p)
+  
+  power[j] = mean(All.studies)
+  
+  print(c(barbeta, j, mean(All.studies)))
 }
 
 print(max.value)

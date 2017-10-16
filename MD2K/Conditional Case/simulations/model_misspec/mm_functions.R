@@ -87,15 +87,15 @@ daily.sim <- function(N, pi, P.0, P.treat, T, window.length, min.p, max.p) {
       H.t = list("X"=X.t[1:t],"A" = A.t[1:t], "I" = I.t[1:t], "rho" =rho.t[1:t])
       t = t+1
     } else {
-      I.t[t:(t+window.length-1)] = 0
-      rho.t[t:(t+window.length-1)] = 0
-      A.t[t:(t+window.length-1)] = 0
-      for(t.prime in t:(t+window.length-1)){
+      I.t[t:(t+window.length)] = 0
+      rho.t[t:(t+window.length)] = 0
+      A.t[t:(t+window.length)] = 0
+      for(t.prime in t:(t+window.length)){
         X.t[t.prime] = sample(1:nrow(P.0), size = 1, prob = P.treat[X.t[t.prime-1],])
       }
-      H.t = list("X"=X.t[1:(t+window.length-1)],"A" = A.t[1:(t+window.length-1)],
-                 "I" = I.t[1:(t+window.length-1)], "rho" =rho.t[1:(t+window.length-1)])
-      t = t+window.length
+      H.t = list("X"=X.t[1:(t+window.length)],"A" = A.t[1:(t+window.length)],
+                 "I" = I.t[1:(t+window.length)], "rho" =rho.t[1:(t+window.length)])
+      t = t+window.length+1
     }
   }
   return(H.t)
@@ -121,12 +121,12 @@ daily.data <- function(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p)
 
 full.trial.sim <- function(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p) {
   # Generate the full trial simulation using a vector of the daily treatment effects
-  foreach(i=1:length(P.treat.list), .combine = "rbind", .packages = c("foreach", "TTR","expm","zoo")) %dorng% daily.data(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p)(i)
+  foreach(i=1:length(P.treat.list), .combine = "rbind") %do% daily.data(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p)(i)
 }
 
 MRT.sim <- function(num.people, N, pi, P.0, P.treat.list, T, window.length, min.p, max.p) {
   ## Do the trial across people!!
-  output = foreach(i=1:num.people, .combine = "rbind", .packages = c("foreach", "TTR","expm","zoo")) %dorng% cbind(i,full.trial.sim(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p))
+  output = foreach(i=1:num.people, .combine = "rbind") %dopar% cbind(i,full.trial.sim(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p))
   colnames(output) = c("person", "day", "t", "Y.t","A.t","X,t", "rho.t", "I.t","psi.t")
   return(output)
 }
@@ -224,7 +224,7 @@ estimation <- function(people) {
   B.t.person = t(Vectorize(cov.gen)((people[,2]-1)*T + people[,3]))
 
   ## Set of possible weights depending on unique X.t
-  set.rho = foreach(lvl=1:length(unique(X.t.person)), .combine = "c", .packages = c("foreach", "TTR","expm","zoo")) %dorng% mean(rho.t.person[X.t.person==lvl], na.rm = TRUE)
+  set.rho = foreach(lvl=1:length(unique(X.t.person)), .combine = "c") %do% mean(rho.t.person[X.t.person==lvl], na.rm = TRUE)
 
   rho = unlist(lapply(X.t.person,tilde.p))
 
@@ -240,9 +240,9 @@ estimation <- function(people) {
 
   num.persons = length(unique(people[,1]))
 
-  XWX = foreach(i=1:num.persons, .combine = "+", .packages = c("foreach", "TTR","expm","zoo")) %dorng% extract.tXWX(Covariates,people,log.weights,i)
+  XWX = foreach(i=1:num.persons, .combine = "+") %do% extract.tXWX(Covariates,people,log.weights,i)
 
-  Middle = foreach(person=1:num.persons, .combine = "+", .packages = c("foreach", "TTR","expm","zoo")) %dorng% M.function(Covariates, people, log.weights, person,XWX,fit.people)
+  Middle = foreach(person=1:num.persons, .combine = "+") %do% M.function(Covariates, people, log.weights, person,XWX,fit.people)
 
   entries1 = c(7:9)
   entries2 = c(10:12)
@@ -351,7 +351,7 @@ full.trial.barsigma.sim <- function(N, pi, P.0, P.treat.list, T, window.length, 
 
 barsigma.estimation <- function(num.iters, N, pi, P.0, P.treat.list, T,
                                 window.length, min.p, max.p) {
-  output = foreach(i=1:num.iters,.combine = "+", .packages = c("foreach", "TTR","expm","zoo")) %dorng% full.trial.barsigma.sim(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p)
+  output = foreach(i=1:num.iters,.combine = "+") %do% full.trial.barsigma.sim(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p)
   return(output)
 }
 
@@ -375,7 +375,7 @@ full.trial.tildepr.sim <- function(N, pi, P.0, P.treat.list, T,
 
 tildepr.estimation <- function(num.iters, N, pi, P.0, P.treat.list,
                                T, window.length, min.p, max.p) {
-  output = foreach(i=1:num.iters,.combine = "+", .packages = c("foreach", "TTR","expm","zoo")) %dorng% full.trial.tildepr.sim(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p)
+  output = foreach(i=1:num.iters,.combine = "+") %do% full.trial.tildepr.sim(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p)
   return(output)
 }
 
