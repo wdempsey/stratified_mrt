@@ -45,7 +45,7 @@ for (j in 1:16) {
   
   ## Treatment vector
   Z.t = Vectorize(cov.gen)((1:num.days) * T)
-  d = find.d(bar.beta.set[i],init.d,max.d,Z.t,num.days)
+  d = find.d(barbeta,init.d,max.d,Z.t,num.days)
   daily.treat = -t(Z.t)%*%d
   
   P.treat.list = list()
