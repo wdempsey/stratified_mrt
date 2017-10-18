@@ -9,10 +9,10 @@ num.days = 10 # Number of days the study will be conducted
 window.length = 60 # Window length for the calculating proximal outcome
 
 ## Construct Transition Matrix given Inputs 1 and 2
-bar.W = c(0.074, 0.53)
-bar.W.wkend1 = c(0.05, 0.50)
+bar.W = c(0.067, 0.519)
+bar.Z = c(10.9,12.0)
+bar.W.wkend1 = c(0.04, 0.45)
 bar.W.wkend2 = c(0.10, 0.60)
-bar.Z = c(10.3,11.8)
 
 Pwkend.list = list(); piwkend.list = list()
 
@@ -35,7 +35,7 @@ piwkend.list[[2]] = approx.pi2
 
 
 # Randomization probability inputs
-N =  c(0,1.61,0,0,2.05,0) # Avg. number of actions per day in each group ("Stressed", "Not Stressed")
+N =  c(0,1.65,0,0,2.15,0) # Avg. number of actions per day in each group ("Not Stressed", "Stressed")
 
 lambda = 0.3 # Smoothing parameter in the randomization formula
 
