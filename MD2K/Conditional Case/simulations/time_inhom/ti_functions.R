@@ -23,15 +23,15 @@ rand.probs <- function(X.t, H.t, T, N, pi, lambda, min.p, max.p) {
 alt.calculateP <- function(bar.W, bar.Z) {
   tilde.Z = c((bar.Z[1]-3)/2, 0,(bar.Z[1]-3)/2,
               (bar.Z[2]-3)/2, 0,(bar.Z[2]-3)/2)
-
+  
   P  = matrix(0, nrow = 6, ncol = 6)
-
+  
   diag(P) = tilde.Z/(1+tilde.Z)
   P[2,3] = P[5,6] = 1.0
   P[1,2] = 1-P[1,1]; P[4,5] = 1-P[4,4]
   P[3,1] = (1-bar.W[1]) * (1-P[3,3]); P[3,4] = bar.W[1] * (1-P[3,3])
   P[6,1] = (1-bar.W[2]) * (1-P[6,6]); P[6,4] = bar.W[2] * (1-P[6,6])
-
+  
   return(P)
 }
 
@@ -103,45 +103,44 @@ daily.sim <- function(N, pi, P.0, P.treat, T, window.length, min.p, max.p) {
 
 daily.data <- function(N, pi, P.0, pi.wkend, P.wkend,
                        P.treat.list, T, window.length, min.p, max.p){
-    ## Generate the daily data for a participant given all the inputs.
-    inside.fn <- function(day) {
-        if((day == 6) | (day == 7)) {
-            P.temp = P.wkend
-            pi.temp = pi.wkend
-        } else {
-            P.temp = P.0
-            pi.temp = pi
-        }
-        P.treat = P.treat.list[[day]]
-        H.t = daily.sim(N, pi.temp, P.temp,
-                        P.treat, T, window.length, min.p, max.p)
-        Y.t = SMA(is.element(H.t$X,c(4,5,6)),window.length)
-        Y.t = Y.t[(window.length+1):(length(Y.t))]
-        prob.gamma = rollapply(1-H.t$rho, window.length, FUN = prod)
-        prob.gamma = prob.gamma[-1]
-        prob.nu = rollapply((H.t$A==0),window.length, FUN = prod)
-        prob.nu = prob.nu[-1]
-        psi.t = prob.nu/prob.gamma
-        data = cbind(day,1:T,Y.t,H.t$A[1:T],H.t$X[1:T],
-                     H.t$rho[1:T],H.t$I[1:T], psi.t)
-        return(data[data[,7] == 1 & data[,8] > 0,])
+  ## Generate the daily data for a participant given all the inputs.
+  inside.fn <- function(day) {
+    if((day == 6) | (day == 7)) {
+      P.temp = P.wkend
+      pi.temp = pi.wkend
+    } else {
+      P.temp = P.0
+      pi.temp = pi
     }
-    return(inside.fn)
+    P.treat = P.treat.list[[day]]
+    H.t = daily.sim(N, pi.temp, P.temp,
+                    P.treat, T, window.length, min.p, max.p)
+    Y.t = SMA(is.element(H.t$X,c(4,5,6)),window.length)
+    Y.t = Y.t[(window.length+1):(length(Y.t))]
+    prob.gamma = rollapply(1-H.t$rho, window.length, FUN = prod)
+    prob.gamma = prob.gamma[-1]
+    prob.nu = rollapply((H.t$A==0),window.length, FUN = prod)
+    prob.nu = prob.nu[-1]
+    psi.t = prob.nu/prob.gamma
+    data = cbind(day,1:T,Y.t,H.t$A[1:T],H.t$X[1:T],
+                 H.t$rho[1:T],H.t$I[1:T], psi.t)
+    return(data[data[,7] == 1 & data[,8] > 0,])
+  }
+  return(inside.fn)
 }
 
 full.trial.sim <- function(N, pi, P.0, pi.wkend, P.wkend,
                            P.treat.list, T, window.length, min.p, max.p) {
-    ## Generate the full trial simulation using a vector of the daily treatment effects
-    foreach(i=1:length(P.treat.list), .combine = "rbind",
-            .packages = c("foreach", "TTR","expm","zoo")) %dorng% daily.data(N, pi, P.0, pi.wkend, P.wkend,
-                                                                             P.treat.list, T, window.length, min.p, max.p)(i)
+  ## Generate the full trial simulation using a vector of the daily treatment effects
+  foreach(i=1:length(P.treat.list), .combine = "rbind") %do% daily.data(N, pi, P.0, pi.wkend, P.wkend,
+                                                                        P.treat.list, T, window.length, min.p, max.p)(i)
 }
+
 
 MRT.sim <- function(num.people, N, pi, P.0, pi.wkend, P.wkend,
                     P.treat.list, T, window.length, min.p, max.p) {
-    ## Do the trial across people!!
-    output = foreach(i=1:num.people, .combine = "rbind",
-                     .packages = c("foreach", "TTR","expm","zoo")) %dorng% cbind(i,full.trial.sim(N, pi, P.0, pi.wkend, P.wkend, P.treat.list, T, window.length, min.p, max.p))
+  ## Do the trial across people!!
+  output = foreach(i=1:num.people, .combine = "rbind") %do% cbind(i,full.trial.sim(N, pi, P.0, pi.wkend, P.wkend, P.treat.list, T, window.length, min.p, max.p))
   colnames(output) = c("person", "day", "t", "Y.t","A.t","X,t", "rho.t", "I.t","psi.t")
   return(output)
 }
@@ -205,7 +204,7 @@ estimation <- function(people) {
   B.t.person = t(Vectorize(cov.gen)((people[,2]-1)*T + people[,3]))
 
   ## Set of possible weights depending on unique X.t
-  set.rho = foreach(lvl=1:length(unique(X.t.person)), .combine = "c", .packages = c("foreach", "TTR","expm","zoo")) %dorng% mean(rho.t.person[X.t.person==lvl], na.rm = TRUE)
+  set.rho = foreach(lvl=1:length(unique(X.t.person)), .combine = "c") %do% mean(rho.t.person[X.t.person==lvl], na.rm = TRUE)
 
   rho = unlist(lapply(X.t.person,tilde.p))
 
@@ -221,9 +220,9 @@ estimation <- function(people) {
 
   num.persons = length(unique(people[,1]))
 
-  XWX = foreach(i=1:num.persons, .combine = "+", .packages = c("foreach", "TTR","expm","zoo")) %dorng% extract.tXWX(Covariates,people,log.weights,i)
+  XWX = foreach(i=1:num.persons, .combine = "+") %do% extract.tXWX(Covariates,people,log.weights,i)
 
-  Middle = foreach(person=1:num.persons, .combine = "+", .packages = c("foreach", "TTR","expm","zoo")) %dorng% M.function(Covariates, people, log.weights, person,XWX,fit.people)
+  Middle = foreach(person=1:num.persons, .combine = "+") %do% M.function(Covariates, people, log.weights, person,XWX,fit.people)
 
   entries1 = c(7:9)
   entries2 = c(10:12)
