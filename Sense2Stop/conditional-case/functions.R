@@ -88,20 +88,25 @@ daily.sim <- function(N, pi, P.0, P.treat, T, window.length, min.p, max.p) {
 
 daily.data <- function(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p){
   # Generate the daily data for a participant given all the inputs!
-
   inside.fn <- function(day) {
-      P.treat = P.treat.list[[day]]
-      H.t = daily.sim(N, pi, P.0, P.treat, T, window.length, min.p, max.p)
-      Y.t = SMA(is.element(H.t$X,c(4,5,6)),window.length); Y.t = Y.t[(window.length+1):(length(Y.t))]
-      ##Y.t = SMA(H.t$X==2,window.length); Y.t = Y.t[(window.length+1):(length(Y.t))]
-      ##Y.t = sim1_Y(H.t,day,d)[1:T]
-      prob.gamma = rollapply(1-H.t$rho, window.length, FUN = prod); prob.gamma = prob.gamma[-1]
-      prob.nu = rollapply((H.t$A==0),window.length, FUN = prod); prob.nu = prob.nu[-1]
-      psi.t = prob.nu/prob.gamma
-      data = cbind(day,1:T,Y.t,H.t$A[1:T],H.t$X[1:T], H.t$rho[1:T],H.t$I[1:T], psi.t)
-      return(data[data[,7] == 1 & data[,8] > 0,])
+    # Pick treatment transition matrix
+    P.treat = P.treat.list[[day]]
+    # Generate the day
+    H.t = daily.sim(N, pi, P.0, P.treat, T, window.length, min.p, max.p)
+    # Compute the outcome variable
+    Y.t = SMA(is.element(H.t$X,c(4,5,6)),window.length); Y.t = Y.t[(window.length+1):(length(Y.t))]
+    # Compute probability of no actions in next 60 minutes
+    prob.gamma = rollapply(1-H.t$rho, window.length-1, FUN = prod); 
+    prob.gamma = prob.gamma[-c(1, length(prob.gamma))]    
+    # Find those times at which no actions occur in next 60 minutes
+    prob.nu = rollapply((H.t$A==0),window.length-1, FUN = prod)
+    prob.nu = prob.nu[-c(1,length(prob.nu))]
+    # Take ratio to get the second component of the weight w_ct (H_{t+\Delta-1})
+    psi.t = prob.nu/prob.gamma
+    data = cbind(day,1:T,Y.t,H.t$A[1:T],H.t$X[1:T], H.t$rho[1:T],H.t$I[1:T], psi.t)
+    return(data[data[,7] == 1 & data[,8] > 0,])
   }
-    return(inside.fn)
+  return(inside.fn)
 }
 
 full.trial.sim <- function(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p) {
@@ -132,21 +137,10 @@ cov.gen <-  function(t) {
 
 find.d <- function(bar.d, init.d, max.d, Z.t, num.days) {
   # Find the quadratic terms given inputs
-  D.star = num.days -1
   d = vector(length = 3)
-
-  # temp.d = max.d-1
-  # d[1] = 0
-  # d[3] = D.star * bar.d * solve(D.star^2 * ( D.star^2/3 - temp.d))
-  # d[2] = -2 * d[3] * temp.d
-  T = num.days
-  d[3] = solve((T+1) * (2*T+1)/6 - max.d * (T+1)+(2*max.d-1), -bar.d)
+  d[3] = solve((num.days+1) * (2*num.days+1)/6 - max.d * (num.days+1)+(2*max.d-1), -bar.d)
   d[1] = d[3]*(2*max.d-1)
   d[2] = -2 * d[3] * max.d
-
-  ### Fix the scaling to get right average
-  #d = (ncol(Z.t) * bar.d / sum(d%*%Z.t)) * d
-
   return(d)
 }
 
