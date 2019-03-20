@@ -124,7 +124,7 @@ f.t <-  function(t,X.t) {
 
 cov.gen <-  function(t) {
   # For each t generate Z.t
-  cov.t = c(1, floor((t-1)/T), floor((t-1)/T)^2)
+  cov.t = c(1, floor(t/T), floor(t/T)^2)
   return(cov.t)
 }
 
@@ -135,12 +135,17 @@ find.d <- function(bar.d, init.d, max.d, Z.t, num.days) {
   D.star = num.days -1
   d = vector(length = 3)
 
-  d[1] = 0
-  d[3] = D.star * bar.d * solve(D.star^2 * ( D.star^2/3 - max.d))
+  # temp.d = max.d-1
+  # d[1] = 0
+  # d[3] = D.star * bar.d * solve(D.star^2 * ( D.star^2/3 - temp.d))
+  # d[2] = -2 * d[3] * temp.d
+  T = num.days
+  d[3] = solve((T+1) * (2*T+1)/6 - max.d * (T+1)+(2*max.d-1), -bar.d)
+  d[1] = d[3]*(2*max.d-1)
   d[2] = -2 * d[3] * max.d
 
   ### Fix the scaling to get right average
-  d = (ncol(Z.t) * bar.d / sum(d%*%Z.t)) * d
+  #d = (ncol(Z.t) * bar.d / sum(d%*%Z.t)) * d
 
   return(d)
 }
