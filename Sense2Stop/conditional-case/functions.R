@@ -1,5 +1,5 @@
 ### Functions associated with Sample Size Calculations
-require(foreach); require(TTR); require(zoo); require(expm)
+require(TTR); require(zoo); require(expm)
 
 ### Simulation functions
 rand.probs <- function(X.t, H.t, T, N, pi, lambda, min.p, max.p) {
@@ -78,9 +78,9 @@ daily.sim <- function(N, pi, P.0, P.treat, T, window.length, min.p, max.p) {
         for(t.prime in t:(t+window.length)){
             X.t[t.prime] = sample(1:nrow(P.0), size = 1, prob = P.treat[X.t[t.prime-1],])
         }
-        H.t = list("X"=X.t[1:(t+window.length-1)],"A" = A.t[1:(t+window.length-1)],
-                   "I" = I.t[1:(t+window.length-1)], "rho" =rho.t[1:(t+window.length-1)])
-        t = t+window.length+1
+        H.t = list("X"=X.t[1:(t+window.length)],"A" = A.t[1:(t+window.length)],
+                   "I" = I.t[1:(t+window.length)], "rho" =rho.t[1:(t+window.length)])
+        t = t+window.length
     }
   }
   return(H.t)
@@ -112,7 +112,7 @@ full.trial.sim <- function(N, pi, P.0, P.treat.list, T, window.length, min.p, ma
 MRT.sim <- function(num.people, N, pi, P.0, P.treat.list, T, window.length, min.p, max.p) {
     ## Do the trial across people!!
     output = foreach(i=1:num.people, .combine = "rbind") %dopar% cbind(i,full.trial.sim(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p))
-    colnames(output) = c("person", "day", "t", "Y.t","A.t","X,t", "rho.t", "I.t","psi.t")
+    colnames(output) = c("person", "day", "t", "Y.t","A.t","X.t", "rho.t", "I.t","psi.t")
     return(output)
 }
 
