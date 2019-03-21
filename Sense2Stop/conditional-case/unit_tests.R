@@ -68,11 +68,13 @@ for (k in 1:window.length) {
 }
 
 set.seed(19371)
-total.iter = 5000
+total.iter = 1000
 # Run 5000 person-days under null hypothesis
 res1 = res2 = res3 = res4 = rep(0,0)
 for (iter in 1:total.iter) {
-  temp.person = daily.sim(N, pi, P, P.treat.list[[5]], T, window.length, min.p, max.p)
+  mod.iter = iter%%10
+  if(mod.iter == 0) {mod.iter = 10}
+  temp.person = daily.sim(N, pi, P, P.treat.list[[mod.iter]], T, window.length, min.p, max.p)
   Y.t = SMA(is.element(temp.person$X,c(4,5,6)),window.length); 
   Y.t = Y.t[(window.length+1):(length(Y.t))]
   res1 = c(res1, Y.t[temp.person$A == 1 & temp.person$X == 2 & temp.person$I == 1])
@@ -89,8 +91,20 @@ length(res1); length(res2); length(res3); length(res4)
 print(c(mean(res1), mean(res2), total[1]/window.length))
 print(c(mean(res3), mean(res4), total[2]/window.length))
 
-## Check 6: check total study is being run without issue
-num.people = 100
-output = MRT.sim(num.people, N, pi, P.0, P.treat.list, T, window.length, min.p, max.p)
-  
-
+## Check full.trial per person is running correctly
+set.seed(19371)
+total.people = 100
+# Run 5000 person-days under null hypothesis
+output = rep(0,0)
+for (person in 1:total.people) {
+  for (day in 1:10) {
+    temp.person = cbind(person, daily.data(N, pi, P, P.treat.list, day, T, window.length, min.p, max.p))
+    output = rbind(output, temp.person)
+  }
+}
+output = data.frame(output)
+colnames(output) = c("person", "day", "t", "Y.t","A.t","X.t", "rho.t", "I.t","psi.t")
+sum(output$A.t == 1 & output$X.t == 2) # Should be approx 1.5k
+sum(output$A.t == 0 & output$X.t == 2)
+sum(output$A.t == 1 & output$X.t == 5) # Should be approx 1.5k
+sum(output$A.t == 0 & output$X.t == 5)

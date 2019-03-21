@@ -86,31 +86,28 @@ daily.sim <- function(N, pi, P.0, P.treat, T, window.length, min.p, max.p) {
   return(H.t)
 }
 
-daily.data <- function(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p){
+daily.data <- function(N, pi, P.0, P.treat.list, day, T, window.length, min.p, max.p){
   # Generate the daily data for a participant given all the inputs!
-  inside.fn <- function(day) {
-    # Pick treatment transition matrix
-    P.treat = P.treat.list[[day]]
-    # Generate the day
-    H.t = daily.sim(N, pi, P.0, P.treat, T, window.length, min.p, max.p)
-    # Compute the outcome variable
-    Y.t = SMA(is.element(H.t$X,c(4,5,6)),window.length); Y.t = Y.t[(window.length+1):(length(Y.t))]
-    # Compute probability of no actions in next 60 minutes
-    prob.gamma = rollapply(1-H.t$rho, window.length-1, FUN = prod); 
-    prob.gamma = prob.gamma[-c(1, length(prob.gamma))]    
-    # Find those times at which no actions occur in next 60 minutes
-    prob.nu = rollapply((H.t$A==0),window.length-1, FUN = prod)
-    prob.nu = prob.nu[-c(1,length(prob.nu))]
-    # Take ratio to get the second component of the weight w_ct (H_{t+\Delta-1})
-    psi.t = prob.nu/prob.gamma
-    data = cbind(rep(day,T),1:T,Y.t[1:T],H.t$A[1:T],H.t$X[1:T], H.t$rho[1:T],H.t$I[1:T], psi.t[1:T])
-    temp = data[data[,7] == 1 & data[,8] > 0,]
-    if (nrow(temp) == 0) {
-      temp = matrix(NA, nrow = 1, ncol = 8)
-    }
-    return(temp)
-  }
-  return(inside.fn)
+  # Pick treatment transition matrix
+  P.treat = P.treat.list[[day]]
+  # Generate the day
+  H.t = daily.sim(N, pi, P.0, P.treat, T, window.length, min.p, max.p)
+  # Compute the outcome variable
+  Y.t = SMA(is.element(H.t$X,c(4,5,6)),window.length); Y.t = Y.t[(window.length+1):(length(Y.t))]
+  # Compute probability of no actions in next 60 minutes
+  prob.gamma = rollapply(1-H.t$rho, window.length-1, FUN = prod); 
+  prob.gamma = prob.gamma[-c(1, length(prob.gamma))]    
+  # Find those times at which no actions occur in next 60 minutes
+  prob.nu = rollapply((H.t$A==0),window.length-1, FUN = prod)
+  prob.nu = prob.nu[-c(1,length(prob.nu))]
+  # Take ratio to get the second component of the weight w_ct (H_{t+\Delta-1})
+  psi.t = prob.nu/prob.gamma
+  data = cbind(rep(day,T),1:T,Y.t[1:T],H.t$A[1:T],H.t$X[1:T], H.t$rho[1:T],H.t$I[1:T], psi.t[1:T])
+  # temp = data[data[,7] == 1 & data[,8] > 0,]
+  # if (nrow(temp) == 0) {
+  #   temp = matrix(NA, nrow = 1, ncol = 8)
+  # }
+  return(data)
 }
 
 full.trial.sim <- function(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p) {
