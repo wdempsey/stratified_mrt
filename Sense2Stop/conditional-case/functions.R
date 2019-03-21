@@ -128,13 +128,13 @@ MRT.sim <- function(num.people, N, pi, P.0, P.treat.list, T, window.length, min.
 
 f.t <-  function(t,X.t) {
   # For each t generate X.t
-  cov.t = c(1, floor((t-1)/T), floor((t-1)/T)^2)
+  cov.t = c(1, ceiling((t-1)/T), ceiling((t-1)/T)^2)
   return(rep(cov.t,2)*c(rep(X.t==2,3),rep(X.t==5,3)))
 }
 
 cov.gen <-  function(t) {
   # For each t generate Z.t
-  cov.t = c(1, floor(t/T), floor(t/T)^2)
+  cov.t = c(1, ceiling(t/T), ceiling(t/T)^2)
   return(cov.t)
 }
 

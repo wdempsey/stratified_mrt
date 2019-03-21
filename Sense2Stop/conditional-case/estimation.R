@@ -22,11 +22,12 @@ ss = power = 0.0
 max.value = 0.0
 
 ## Treatment vector
-Z.t = Vectorize(cov.gen)((1:num.days) * T)
+Z.t = Vectorize(cov.gen)((0:(num.days-1)) * T+1)
 d = find.d(barbeta,init.d,max.d,Z.t,num.days)
-daily.treat = -t(Z.t)%*%d
+daily.treat = t(Z.t)%*%d
 
 P.treat.list = list()
+max.value = -1
 
 for(day in 1:num.days) {
   effect = rep(daily.treat[day],2)
