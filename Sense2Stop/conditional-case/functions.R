@@ -103,8 +103,12 @@ daily.data <- function(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p)
     prob.nu = prob.nu[-c(1,length(prob.nu))]
     # Take ratio to get the second component of the weight w_ct (H_{t+\Delta-1})
     psi.t = prob.nu/prob.gamma
-    data = cbind(day,1:T,Y.t,H.t$A[1:T],H.t$X[1:T], H.t$rho[1:T],H.t$I[1:T], psi.t)
-    return(data[data[,7] == 1 & data[,8] > 0,])
+    data = cbind(rep(day,T),1:T,Y.t[1:T],H.t$A[1:T],H.t$X[1:T], H.t$rho[1:T],H.t$I[1:T], psi.t[1:T])
+    temp = data[data[,7] == 1 & data[,8] > 0,]
+    if (nrow(temp) == 0) {
+      temp = matrix(NA, nrow = 1, ncol = 8)
+    }
+    return(temp)
   }
   return(inside.fn)
 }
@@ -115,10 +119,10 @@ full.trial.sim <- function(N, pi, P.0, P.treat.list, T, window.length, min.p, ma
 }
 
 MRT.sim <- function(num.people, N, pi, P.0, P.treat.list, T, window.length, min.p, max.p) {
-    ## Do the trial across people!!
-    output = foreach(i=1:num.people, .combine = "rbind") %dopar% cbind(i,full.trial.sim(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p))
-    colnames(output) = c("person", "day", "t", "Y.t","A.t","X.t", "rho.t", "I.t","psi.t")
-    return(output)
+  ## Do the trial across people!!
+  output = foreach(i=1:num.people, .combine = "rbind") %dopar% cbind(i,full.trial.sim(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p))
+  colnames(output) = c("person", "day", "t", "Y.t","A.t","X.t", "rho.t", "I.t","psi.t")
+  return(output)
 }
 
 f.t <-  function(t,X.t) {

@@ -60,7 +60,7 @@ prob.nu.rollapply = rollapply((temp$A==0),window.length-1, FUN = prod); prob.nu.
 all((prob.nu.forloop - prob.nu.rollapply)==0) # Shows that rollapply works properly
 
 
-# Check 5: Check Y.t under no effect is near truth
+## Check 5: Check Y.t under no effect is near truth ##
 # Compute true means
 total = 0.0
 for (k in 1:window.length) {
@@ -86,6 +86,18 @@ for (iter in 1:total.iter) {
 length(res1); length(res2); length(res3); length(res4)
 # As expected, we have roughly 1500/1000 = 1.5 treatments
 # on average across days
-print(c(mean(res1), mean(res2), total[1]/window.length[1]))
-print(c(mean(res3), mean(res4), total[2]/window.length[2]))
+print(c(mean(res1), mean(res2), total[1]/window.length))
+print(c(mean(res3), mean(res4), total[2]/window.length))
+
+## Check 6: Daily.Data is being pulled properly
+total.iter = 40 # 100 people
+set.seed(19371)
+output = matrix(nrow = 0, ncol = 8)
+for (iter in 1:total.iter) {
+  print(iter)
+  temp = foreach(i=1:length(P.treat.list), .combine = "rbind") %do% daily.data(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p)(i)
+  output = rbind(output, temp)
+}
+    
+  
 
