@@ -104,7 +104,46 @@ for (person in 1:total.people) {
 }
 output = data.frame(output)
 colnames(output) = c("person", "day", "t", "Y.t","A.t","X.t", "rho.t", "I.t","psi.t")
-sum(output$A.t == 1 & output$X.t == 2) # Should be approx 1.5k
-sum(output$A.t == 0 & output$X.t == 2)
-sum(output$A.t == 1 & output$X.t == 5) # Should be approx 1.5k
-sum(output$A.t == 0 & output$X.t == 5)
+sum(output$A.t == 1 & output$X.t == 2 & output$I.t == 1 & output$psi.t > 0) # Should be approx 1.5k
+sum(output$A.t == 0 & output$X.t == 2 & output$I.t == 1 & output$psi.t > 0)
+sum(output$A.t == 1 & output$X.t == 5 & output$I.t == 1 & output$psi.t > 0) # Should be approx 1.5k
+sum(output$A.t == 0 & output$X.t == 5 & output$I.t == 1 & output$psi.t > 0)
+
+# I should see that the means are find when I don't control for psi.t
+print(paste("True mean is", round(total[1]/window.length,4)))
+mean(output$Y.t[output$A.t == 1 & output$X.t == 2])
+mean(output$Y.t[output$A.t == 0 & output$X.t == 2])
+
+print(paste("True mean is", round(total[2]/window.length,4)))
+mean(output$Y.t[output$A.t == 1 & output$X.t == 5])
+mean(output$Y.t[output$A.t == 0 & output$X.t == 5])
+
+prod((1-output$rho.t[2:(2+window.length)]))
+## Now, the data we analyze is only 
+## when participant is available and no subsequent treatment
+## that is I_t = 1, psi_t > 0.  But then we need to adjust the 
+## expectations to see if unbiased.
+## This will add variance to our estimators, but will be unbiased.
+print(paste("True mean is", round(total[1]/window.length,4)))
+mean((output$psi.t*output$Y.t)[output$A.t == 1 & output$X.t == 2])
+mean((output$psi.t*output$Y.t)[output$A.t == 0 & output$X.t == 2])
+
+print(paste("True mean is", round(total[2]/window.length,4)))
+mean((output$psi.t*output$Y.t)[output$A.t == 1 & output$X.t == 5])
+mean((output$psi.t*output$Y.t)[output$A.t == 0 & output$X.t == 5])
+
+## There should be no effect in this example.
+## 
+tilde.p = rep(0,2)
+tilde.p[1] = mean(output$rho.t[output$X.t == 2 & output$I.t == 1])
+tilde.p[2] = mean(output$rho.t[output$X.t == 5 & output$I.t == 1])
+
+obs.Xt2 = output$X.t == 2 & output$I.t == 1
+obs.Xt5 = output$X.t == 5 & output$I.t == 1
+
+weights2 = tilde.p[1]/output$rho.t[obs.Xt2] * output$psi.t[obs.Xt2] 
+weights5 = tilde.p[2]/output$rho.t[obs.Xt5] * output$psi.t[obs.Xt5] 
+centered.actions2 = (output$A.t[obs.Xt2]-tilde.p[1])
+centered.actions5 = (output$A.t[obs.Xt5]-tilde.p[1])
+summary(lm(output$Y.t[obs.Xt2]~1 +centered.actions2,weights = weights2))
+summary(lm(output$Y.t[obs.Xt5]~1 +centered.actions5,weights = weights5))
