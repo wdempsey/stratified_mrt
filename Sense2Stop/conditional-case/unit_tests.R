@@ -89,15 +89,8 @@ length(res1); length(res2); length(res3); length(res4)
 print(c(mean(res1), mean(res2), total[1]/window.length))
 print(c(mean(res3), mean(res4), total[2]/window.length))
 
-## Check 6: Daily.Data is being pulled properly
-total.iter = 40 # 100 people
-set.seed(19371)
-output = matrix(nrow = 0, ncol = 8)
-for (iter in 1:total.iter) {
-  print(iter)
-  temp = foreach(i=1:length(P.treat.list), .combine = "rbind") %do% daily.data(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p)(i)
-  output = rbind(output, temp)
-}
-    
+## Check 6: check total study is being run without issue
+num.people = 100
+output = MRT.sim(num.people, N, pi, P.0, P.treat.list, T, window.length, min.p, max.p)
   
 

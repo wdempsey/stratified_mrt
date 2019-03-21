@@ -121,6 +121,7 @@ full.trial.sim <- function(N, pi, P.0, P.treat.list, T, window.length, min.p, ma
 MRT.sim <- function(num.people, N, pi, P.0, P.treat.list, T, window.length, min.p, max.p) {
   ## Do the trial across people!!
   output = foreach(i=1:num.people, .combine = "rbind") %dopar% cbind(i,full.trial.sim(N, pi, P.0, P.treat.list, T, window.length, min.p, max.p))
+  output = data.frame(output)
   colnames(output) = c("person", "day", "t", "Y.t","A.t","X.t", "rho.t", "I.t","psi.t")
   return(output)
 }
